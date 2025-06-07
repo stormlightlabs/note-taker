@@ -1,0 +1,22 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "NoteTaker.GUI", "NoteTaker.GUI\NoteTaker.GUI.fsproj", "{C649F5C1-47AE-45A1-82F9-E6C76929E796}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "NoteTaker.Tests", "NoteTaker.Tests\NoteTaker.Tests.fsproj", "{56910534-B1E5-4DBF-9326-CA1A6B610773}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{C649F5C1-47AE-45A1-82F9-E6C76929E796}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C649F5C1-47AE-45A1-82F9-E6C76929E796}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C649F5C1-47AE-45A1-82F9-E6C76929E796}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C649F5C1-47AE-45A1-82F9-E6C76929E796}.Release|Any CPU.Build.0 = Release|Any CPU
+		{56910534-B1E5-4DBF-9326-CA1A6B610773}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{56910534-B1E5-4DBF-9326-CA1A6B610773}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{56910534-B1E5-4DBF-9326-CA1A6B610773}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{56910534-B1E5-4DBF-9326-CA1A6B610773}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
