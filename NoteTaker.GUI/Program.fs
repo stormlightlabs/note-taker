@@ -11,8 +11,6 @@ open Avalonia.FuncUI
 open Avalonia.FuncUI.DSL
 open Avalonia.FuncUI.Elmish
 open Avalonia.Layout
-
-open Microsoft.Extensions.Logging
 open NoteTaker
 
 type Views =
@@ -32,63 +30,41 @@ type Views =
 
     static member List : List<Views> = [ Inbox; Capture; Next; Projects ]
 
-type ApplicationError =
-    | SetupDirsError
-    | LoadConfigError of string
-    | DirCreationError of (string * string)
-    | Unexpected
-
 /// Application State
-type Model =
-    { Config : Config
-      CurrentView : Views
-      Error : ApplicationError option }
+type Model = {
+    Config : Config
+    CurrentView : Views
+    Error : Error option
+}
 
 /// State Updates
 type Message =
     | SelectView of Views
     | ToggleScheme
 
-/// Creates data directories on application initialization
-let ensureDirs () =
-    let confPath = Config.getConfigPath
+let store : Store = Store.FileSystem.getConfigDir |> Store.FileSystem.make
 
-    match Config.loadConfig with
-    | Ok cfg ->
-        let baseDir = Path.GetDirectoryName confPath
-
-        Logger.debug $"base dir: {baseDir}"
-
-        Views.List
-        |> List.map (fun view ->
-            let dirPath = view.dirName |> fun name -> Path.Combine(baseDir, name)
-
-            try
-                Directory.CreateDirectory dirPath
-                |> fun dirInfo -> Logger.info $"Created {dirInfo.Name}"
-                |> Ok
-            with exn ->
-                Logger.error $"Creating {dirPath} failed with {exn.Message}"
-                DirCreationError(dirPath, exn.Message) |> Error)
-        |> List.filter _.IsError
-        |> fun results ->
-            match results with
-            | [] -> Ok cfg
-            | _ -> SetupDirsError |> Error
-    | Error(err) -> err.ToString() |> LoadConfigError |> Error
+/// Creates data directories on application initialization and returns full path to file
+let ensureDirs (baseDir : string) =
+    Views.List
+    |> List.map (fun view ->
+        view.dirName
+        |> fun name -> Path.Combine(baseDir, name)
+        |> Directory.CreateDirectory
+        |> _.FullName)
 
 /// Initialize application state
 let init () : Model * Cmd<Message> =
-    match ensureDirs () with
-    | Ok cfg ->
-        { Config = cfg
-          CurrentView = Capture
-          Error = None },
-        Cmd.none
+    ensureDirs Store.FileSystem.getConfigDir |> ignore
+
+    match store.Load() with
+    | Ok cfg -> { Config = cfg; CurrentView = Capture; Error = None }, Cmd.none
     | Error err ->
-        { Config = Config.Default
-          CurrentView = Capture
-          Error = Some err },
+        {
+            Config = Config.Default
+            CurrentView = Capture
+            Error = Some err
+        },
         Cmd.none
 
 /// State mutation handler
@@ -101,36 +77,37 @@ let update (msg : Message) (state : Model) =
             | Light -> Dark
             | Dark -> Light
 
-        { state with
-            Model.Config.Scheme = scheme },
-        Cmd.none
-
-type DispatchFn = Message -> unit
+        { state with Model.Config.Scheme = scheme }, Cmd.none
 
 /// UI Rendering
 /// TODO: Separate into Windows/Screens & Widgets within a UI specific namespace
-let view (model : Model) (dispatch : DispatchFn) =
+let view (model : Model) (dispatch : Message -> unit) =
     let sidebarItems : List<Types.IView> =
-        let handler v =
-            Logger.debug $"View Selected: {v}"
-            dispatch (SelectView v)
+        let handler view =
+            Logger.debug $"View Selected: {view}"
+
+            dispatch (SelectView view)
 
         Views.List
         |> List.map (fun view ->
-            Button.create
-                [ Button.content view.label; Button.onClick (fun _ -> handler view) ])
+            Button.create [
+                Button.content view.label
+                Button.onClick (fun _ -> handler view)
+            ])
 
     // TODO: "Main" window
-    DockPanel.create
-        [ DockPanel.children
-              [
-                // TODO: "Sidebar" widget
-                StackPanel.create [ StackPanel.children sidebarItems ]
-                // TODO: "Content" widget
-                TextBlock.create
-                    [ TextBlock.text $"Current View: {model.CurrentView.label}"
-                      TextBlock.verticalAlignment VerticalAlignment.Center
-                      TextBlock.horizontalAlignment HorizontalAlignment.Center ] ] ]
+    DockPanel.create [
+        DockPanel.children [
+            // TODO: "Sidebar" widget
+            StackPanel.create [ StackPanel.children sidebarItems ]
+            // TODO: "Content" widget
+            TextBlock.create [
+                TextBlock.text $"Current View: {model.CurrentView.label}"
+                TextBlock.verticalAlignment VerticalAlignment.Center
+                TextBlock.horizontalAlignment HorizontalAlignment.Center
+            ]
+        ]
+    ]
 
 module Program =
     type MainWindow() as this =
