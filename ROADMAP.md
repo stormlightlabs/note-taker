@@ -5,271 +5,208 @@ updated: 2025-06-07
 version: 1.0.0
 ---
 
-## Phase 1: Minimal Shell + File-Backed Notes (Alpha 0.1)
+## Minimal Shell + File-Backed Notes
 
-> Get a working, cross-platform “empty” app in users’ hands.
+> Get a working, cross-platform "empty" app in users’ hands.
 > Focus on core Elmish structure, folder layout, and basic read-only notes.
 
-### Must-Have Features
+### Features
 
-1. **App Shell & Layout**
+1. App Shell & Layout
+    - [x] Single-window frame with a left sidebar and main content area.
+    - [x] Sidebar shows static items: Inbox, Journals, Projects
+    - [ ] Top menu (File, Edit, View) stubbed out but non-functional.
+2. Elmish Loop
+    - [x] Implement (Model, Msg, Update, View) boilerplate.
+    - [ ] Render a placeholder welcome screen
+        - "Welcome to the Stormlight Labs Note Taker! Click Inbox to get started."
+3. Filesystem Scaffolding
+    - [x] On first run, create a `~/.config/note_taker` folder (or `%AppData%/Lazo` on Windows)
+      with subfolders:
 
-    * Single-window frame with a left sidebar and main content area.
-    * Sidebar shows static items: Inbox, Journals, Projects (no click actions yet).
-    * Top menu (File, Edit, View) stubbed out but non-functional.
-
-2. **Elmish Loop**
-
-    * Implement (Model, Msg, Update, View) boilerplate.
-    * Render a placeholder welcome screen (“Welcome to Lazo! Click Inbox to get started”).
-
-3. **Filesystem Scaffolding**
-
-    * On first run, create a `~/.lazo` folder (or `%AppData%/Lazo` on Windows) with subfolders:
-
-      ```sh
-      ~/.lazo/
-        ├─ Inbox/
-        ├─ Journals/
-        └─ Projects/
-      ```
-
-    * Store a `config.json` (theme, recent-files list). If missing, write defaults.
-
-4. **Read-Only Markdown Preview**
-
-    * When the user clicks Inbox, list files in `Inbox/` (only filenames).
-    * Clicking a filename loads it into a Markdown renderer pane (read-only).
-
-5. **Basic Theming**
-
-    * Light vs. Dark toggle (reads/writes `config.json`).
-    * Persist theme choice on exit.
+       ```text
+        ~/.config/
+         └─ note_taker/
+            ├─ Inbox/
+            ├─ Journals/
+            └─ Projects/
+       ```
+    - [x] Store a `config.json` (theme, recent-files list). If missing, write defaults.
+4. Read-Only Markdown Preview
+    - [ ] When the user clicks Inbox, list files in `Inbox/` (only filenames).
+    - [ ] Clicking a filename loads it into a Markdown renderer pane (read-only).
+5. Basic Theming
+    - [x] Light vs. Dark toggle (reads/writes `config.json`).
+    - [x] Persist theme choice on exit.
 
 ### Tests & Validation
 
-* **Config Load/Save Tests**
+- Config Load/Save Tests
+    - [x] Unit tests for deserializing empty/malformed `config.json`.
+    - [x] Unit tests for saving theme choice.
+- File-IO Tests
+    - [x] Integration tests for folder creation and sample Markdown preview.
 
-    * Unit tests for deserializing empty/malformed `config.json`.
-    * Unit tests for saving theme choice.
-* **File-IO Tests**
-
-    * Integration tests for folder creation and sample Markdown preview.
-
-### Release Hook
-
-* Cross-platform binary (Windows/Mac/Linux) via `dotnet publish`.
-* User can toggle theme and preview notes in Inbox.
-
----
-
-## Phase 2: Capture & Quick-Entry (Alpha 0.2)
+## Capture & Quick-Entry (Alpha 0.1)
 
 > Let users create new notes instantly with minimal friction.
 
-### Must-Have Features
+### Features
 
-1. **New Note Flow**
-
-    * Keyboard shortcut (`Ctrl+N`/`⌘+N`) opens overlay: title field + folder dropdown.
-    * Save writes `Title.md` into chosen folder and opens it in the editor.
-
-2. **Basic Markdown Editor**
-
-    * Text area with live-preview toggle.
-    * Autosave after 300 ms of inactivity.
-    * Minimal toolbar: Bold, Italic, Link.
-
-3. **Daily Journal Shortcut**
-
-    * `Ctrl+J`/`⌘+J` creates/opens `Journals/YYYY-MM-DD.md` with a date header.
-
-4. **Undo/Redo**
-
-    * In-editor undo/redo stack.
-    * Shortcuts: `Ctrl+Z`/`⌘+Z`, `Ctrl+Y`/`⌘+Shift+Z`.
-
-5. **Font Settings**
-
-    * Editor font-size slider (8–24 pt).
-    * Persist in `config.json`.
+1. New Note Flow
+    - [ ] Keyboard shortcut (`Ctrl+N`/`⌘+N`) opens overlay: title field + folder dropdown.
+    - [ ] Save writes `Title.md` into chosen folder and opens it in the editor.
+2. Basic Markdown Editor
+    - [ ] Text area with live-preview toggle.
+    - [ ] Autosave after 300 ms of inactivity.
+    - [ ] Minimal toolbar: Bold, Italic, Link.
+3. Daily Journal Shortcut
+    - [ ] `Ctrl+J`/`⌘+J` creates/opens `Journals/YYYY-MM-DD.md` with a date header.
+4. Undo/Redo
+    - [ ] In-editor undo/redo stack.
+    - [ ] Shortcuts: `Ctrl+Z`/`⌘+Z`, `Ctrl+Y`/`⌘+Shift+Z`.
+5. Font Settings
+    - [ ] Editor font-size slider (8–24 pt).
+    - [ ] Persist in `config.json`.
 
 ### Tests & Validation
 
-* **Note Creation Tests**
+- Note Creation Tests
+    - [ ] Unit: writing a new note file.
+    - [ ] Unit: sanitizing invalid title characters.
+- Autosave Tests
+    - [ ] Integration: idle typing triggers disk write.
+    - [ ] Unit: undo/redo behavior.
+- Journal Tests
+    - [ ] Unit: same-day journal file reuse.
+    - [ ] Unit: date header formatting.
 
-    * Unit: writing a new note file.
-    * Unit: sanitizing invalid title characters.
-* **Autosave Tests**
+### Release
 
-    * Integration: idle typing triggers disk write.
-    * Unit: undo/redo behavior.
-* **Journal Tests**
+- `dotnet publish`
+- Users can capture notes/journals, edit with autosave, and adjust basic settings.
+- Show a “Note created” toast on save.
 
-    * Unit: same-day journal file reuse.
-    * Unit: date header formatting.
-
-### Release Hook
-
-* Users can capture notes/journals, edit with autosave, and adjust basic settings.
-* Show a “Note created” toast on save.
-
----
-
-## Phase 3: GTD Core Workflow (Alpha 0.3)
+## Core Workflow (Alpha 0.2)
 
 > Allow users to move notes through a simple GTD funnel: Inbox → Next Actions → Projects → Archive.
 
-### Must-Have Features
+### Features
 
-1. **Status & Actions**
+1. Status & Actions
+    - [ ] Status badge (Inbox, Next, Project, Archived) on each note.
+    - [ ] "Change Status" dropdown moves the `.md` file to the appropriate folder.
+    - [ ] Project status prompts for project name and creates a subfolder under `Projects/`.
 
-    * Status badge (Inbox, Next, Project, Archived) on each note.
-    * “Change Status” dropdown moves the `.md` file to the appropriate folder.
-    * Project status prompts for project name and creates a subfolder under `Projects/`.
+2. Project Overview Panel
+    - [ ] Clicking Projects shows a list of project names.
+    - [ ] Two-pane view: list of project notes (left) and selected note (right).
 
-2. **Project Overview Panel**
+3. Triage View
+    - [ ] Inbox view lists notes sorted by creation date.
+    - [ ] Quick buttons: “→ Next Action,” “→ Project…,” “Archive.”
 
-    * Clicking Projects shows a list of project names.
-    * Two-pane view: list of project notes (left) and selected note (right).
-
-3. **Triage View**
-
-    * Inbox view lists notes sorted by creation date.
-    * Quick buttons: “→ Next Action,” “→ Project…,” “Archive.”
-
-4. **Archive View**
-
-    * Read-only previews of archived notes.
-
-5. **Keyboard Navigation**
-
-    * Arrow keys to navigate lists, Enter to open notes, Esc to close dialogs.
+4. Archive View
+    - [ ] Read-only previews of archived notes.
+5. Keyboard Navigation
+    - [ ] Arrow keys to navigate lists, Enter to open notes, Esc to close dialogs.
 
 ### Tests & Validation
 
-* **Status Transition Tests**
+- Status Transition Tests
+    - [ ] Unit: file moves and model updates.
+    - [ ] Integration: project creation with duplicate names.
 
-    * Unit: file moves and model updates.
-    * Integration: project creation with duplicate names.
-* **Folder Structure Tests**
+- Folder Structure Tests
+    - [ ] Integration: on-demand creation of NextActions, Projects, Archive folders.
 
-    * Integration: on-demand creation of NextActions, Projects, Archive folders.
-* **Keyboard Flow Tests**
+- Keyboard Flow Tests
+    - [ ] Unit: simulate navigation and status changes.
 
-    * Unit: simulate navigation and status changes.
+### Release
 
-### Release Hook
+- Triage, next-action assignment, project grouping, and archiving.
+- Gather feedback on workflow intuitiveness.
 
-* Alpha 0.3 includes triage, next-action assignment, project grouping, and archiving.
-* Gather feedback on workflow intuitiveness.
-
----
-
-## Phase 4: Metadata, Search, & Tags (Beta 0.4)
+## Metadata, Search, & Tags (Alpha 0.3)
 
 > Add lightweight structure for quick retrieval without a heavyweight database.
 
-### Must-Have Features
+### Features
 
-1. **Tagging Convention**
-
-    * Extract `#tag` tokens from Markdown.
-    * Clickable tags filter notes across all folders.
-
-2. **Full-Text Search**
-
-    * Build a simple index (SQLite or LiteDB.FSharp).
-    * Search bar filters results live (title + snippet).
-
-3. **Advanced Filters**
-
-    * Sidebar “Filters”: Unassigned, Due Today (front-matter `due:`), Starred.
-    * Store metadata in front-matter (YAML or JSON).
-
-4. **Metadata Panel**
-
-    * “⋮” menu allows editing metadata: title, tags, due date (calendar picker), star toggle.
-    * Auto-update front-matter.
-
-5. **Project Rename**
-
-    * Renaming a project folder on disk, with conflict confirmation.
+1. Tagging Convention
+    - [ ] Extract `#tag` tokens from Markdown.
+    - [ ] Clickable tags filter notes across all folders.
+2. Full-Text Search
+    - [ ] Build a simple index (SQLite or LiteDB.FSharp).
+    - [ ] Search bar filters results live (title + snippet).
+3. Advanced Filters
+    - [ ] Sidebar “Filters”: Unassigned, Due Today (front-matter `due:`), Starred.
+    - [ ] Store metadata in front-matter (YAML or JSON).
+4. Metadata Panel
+    - [ ] "⋮" menu allows editing metadata: title, tags, due date (calendar picker), star toggle.
+    - [ ] Auto-update front-matter.
+5. Project Rename
+    - [ ] Renaming a project folder on disk, with conflict confirmation.
 
 ### Tests & Validation
 
-* **Tag Extraction Tests**
+- Tag Extraction Tests
+    - [ ] Unit: parse tags from sample Markdown.
+- Search Tests
+    - [ ] Integration: test corpus search accuracy and snippet highlighting.
+- Filter Tests
+    - [ ] Unit: due-date parsing, star toggling.
+- Project Rename Tests
+    - [ ] Integration: handling name conflicts gracefully.
 
-    * Unit: parse tags from sample Markdown.
-* **Search Tests**
+### Release
 
-    * Integration: test corpus search accuracy and snippet highlighting.
-* **Filter Tests**
-
-    * Unit: due-date parsing, star toggling.
-* **Project Rename Tests**
-
-    * Integration: handling name conflicts gracefully.
-
-### Release Hook
-
-* Beta 0.4 unlocks tagging, search, and filters.
-* Solicit power-user feedback on search speed and tag UX.
+- Tagging, search, and filters.
+- Get feedback on search speed and tag UX.
 
 ---
 
-## Phase 5: Customization & Power-User Tools (Beta 0.5)
+## Customization & Power-User Tools (Beta 0.4)
 
 > Expose deeper settings, snapshot history, and plugin foundations.
 
-### Must-Have Features
+### Features
 
-1. **Settings Window**
-
-    * Theme (Light, Dark, System), editor font face/size, keyboard shortcuts mapping, default folders, backup location.
-
-2. **Undo Across Sessions**
-
+1. Settings Window
+    * Theme (Light, Dark, System), editor font face/size, keyboard shortcuts mapping, default
+      folders, backup location.
+2. Undo Across Sessions
     * Save previous versions in `History/<note-id>/timestamp.md`.
     * UI to restore snapshots.
-
-3. **Plugin/Script Hooks**
-
+3. Plugin/Script Hooks
     * Plugin manifest schema in `~/.lazo/plugins/`.
     * “Run Plugin Script” menu option, spawning external executables with note path.
-
-4. **Saved Searches (Smart Folders)**
-
+4. Saved Searches (Smart Folders)
     * Define saved queries that appear in sidebar.
     * Simple query builder UI.
-
-5. **Bulk Actions**
-
+5. Bulk Actions
     * Multi-select notes for bulk status changes or tag edits.
 
 ### Tests & Validation
 
-* **Settings Persistence Tests**
+- Settings Persistence Tests
+    - [ ] Unit: verify config updates.
+- History Tests
+    - [ ] Integration: multiple snapshots; correct restore.
+- Plugin Tests
+    - [ ] Unit: spawn dummy script with correct args.
+- Smart Folder Tests
+    - [ ] Integration: saved queries shown and run correctly.
 
-    * Unit: verify config updates.
-* **History Tests**
+### Release
 
-    * Integration: multiple snapshots; correct restore.
-* **Plugin Tests**
-
-    * Unit: spawn dummy script with correct args.
-* **Smart Folder Tests**
-
-    * Integration: saved queries shown and run correctly.
-
-### Release Hook
-
-* Beta 0.5 turns Lazo into a customizable workspace with session history and plugin foundations.
-* Encourage developers to build a sample plugin.
+- Turns app into a customizable workspace with session history and plugin foundations.
+- Encourage developers to build a sample plugin.
 
 ---
 
-## Phase 6: Cloud Sync & Mobile Companion (Beta 0.6+)
+## Phase 6: Cloud Sync & Mobile Companion (Beta 0.5+)
 
 > Provide cross-device access and sync, while keeping desktop app offline-first.
 
@@ -325,7 +262,8 @@ version: 1.0.0
 
 1. **UI/UX Polish**
 
-    * Refined typography, padding, icons, animations, accessibility (high-contrast mode, screen-reader labels).
+    * Refined typography, padding, icons, animations, accessibility (high-contrast mode,
+      screen-reader labels).
 
 2. **Performance Tuning**
 
@@ -361,10 +299,10 @@ version: 1.0.0
 
 ---
 
-### ADHD-Friendly Considerations (All Phases)
+### Accessibility Considerations
 
-* Minimal onboarding flow.
-* Keyboard-first interactions.
-* Clear visual cues with minimal clutter.
-* Progressive disclosure of advanced features behind an “Expert Mode” toggle.
-* Instant feedback via toasts/snackbars.
+- Minimal onboarding flow.
+- Keyboard-first interactions.
+- Clear visual cues with minimal clutter.
+- Progressive disclosure of advanced features behind an “Expert Mode” toggle.
+- Instant feedback via toasts/snackbars.

@@ -2,6 +2,7 @@ namespace NoteTaker
 
 open System
 open System.IO
+open Elmish
 open Thoth.Json.Net
 
 type Error =
@@ -19,7 +20,13 @@ type Scheme =
     | Light
     | Dark
 
-    static member decodeString(x : string) : Scheme =
+module Scheme =
+    let toggle (s : Scheme) : Scheme =
+        match s with
+        | Light -> Dark
+        | Dark -> Light
+
+    let decodeString (x : string) : Scheme =
         match x.ToLower() with
         | "dark" -> Dark
         | "light"
@@ -46,12 +53,13 @@ type Config = {
             "recent_files", Encode.list <| (conf.RecentFiles |> List.map Encode.string)
         ]
 
-    static member decode(text : string) : Result<Config, Error> =
+module Config =
+    let decode (text : string) : Result<Config, Error> =
         match Decode.fromString Config.Decoder text with
         | Ok cfg -> Ok(cfg)
         | Error message -> Error(DecoderError message)
 
-    static member encode(conf : Config) =
+    let encode (conf : Config) =
         Config.Encoder conf |> Encode.toString 2
 
 /// A pluggable persistence strategy
@@ -104,3 +112,69 @@ module Store =
                 Ok()
 
             { Load = load; Save = save }
+
+type Views =
+    | Inbox
+    | Capture
+    | Next
+    | Projects
+
+    member this.label : string = this.ToString()
+
+    member this.dirName : string =
+        match this with
+        | Inbox -> "inbox"
+        | Capture -> "capture"
+        | Next -> "tasks"
+        | Projects -> "projects"
+
+    static member List : List<Views> = [ Inbox; Capture; Next; Projects ]
+
+/// Application State
+type Model = {
+    Config : Config
+    CurrentView : Views
+    Error : Error option
+}
+
+/// State Updates
+type Message =
+    | SelectView of Views
+    | ToggleScheme
+
+module Model =
+    /// State mutation handlers
+    let update (msg : Message) (state : Model) : Model * Cmd<Message> =
+        match msg with
+        | SelectView view -> { state with CurrentView = view }, Cmd.none
+        | ToggleScheme ->
+            {
+                state with
+                    Model.Config.Scheme = state.Config.Scheme |> Scheme.toggle
+            },
+            Cmd.none
+
+    let private store : Store = Store.FileSystem.getConfigDir |> Store.FileSystem.make
+
+    /// Creates data directories on application initialization and returns full path to file
+    let private ensureDirs (baseDir : string) =
+        Views.List
+        |> List.map (fun view ->
+            view.dirName
+            |> fun name -> Path.Combine(baseDir, name)
+            |> Directory.CreateDirectory
+            |> _.FullName)
+
+    /// Initialize application state
+    let init () : Model * Cmd<Message> =
+        ensureDirs Store.FileSystem.getConfigDir |> ignore
+
+        match store.Load() with
+        | Ok cfg -> { Config = cfg; CurrentView = Capture; Error = None }, Cmd.none
+        | Error err ->
+            {
+                Config = Config.Default
+                CurrentView = Capture
+                Error = Some err
+            },
+            Cmd.none
