@@ -76,8 +76,10 @@ module Store =
             | PlatformID.Unix
             | PlatformID.MacOSX ->
                 Environment.GetEnvironmentVariable "HOME"
-                |> fun h -> h :: [ ".config" ] |> List.toArray |> Path.Combine
-            | _ -> Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData)
+                |> fun h -> h :: [ ".config" ]
+                |> List.toArray
+                |> Path.Combine
+            | _ -> Environment.GetFolderPath Environment.SpecialFolder.ApplicationData
             |> fun baseDir -> Path.Combine(baseDir, "note_taker")
 
         let make (baseDir : string) : Store =
@@ -86,7 +88,7 @@ module Store =
             let saveConfig (conf : Config) : Result<unit, Error> =
                 try
                     Config.encode conf
-                    |> (fun data -> File.WriteAllText(configPath, data))
+                    |> fun data -> File.WriteAllText(configPath, data)
                     |> Ok
                 with err ->
                     DecoderError err.Message |> Error
@@ -130,29 +132,115 @@ type Views =
 
     static member List : List<Views> = [ Inbox; Capture; Next; Projects ]
 
-/// Application State
-type Model = {
-    Config : Config
-    CurrentView : Views
-    Error : Error option
+type Note = {
+    Id : Guid
+    CreatedAt : DateTime
+    UpdatedAt : DateTime
+    Title : string
+    Folder : string
+    Filename : string
 }
+
+module Note =
+    let private invalid = Path.GetInvalidFileNameChars()
+
+    let private clean (t : string) =
+        t.Trim() |> _.ToLowerInvariant() |> _.Replace(' ', '-') |> _.Replace(':', '-')
+
+    let private newGuid = Guid.NewGuid()
+
+    let private slugify (title : string) =
+        clean title
+        |> Seq.filter (fun ch -> not (invalid |> Array.contains ch))
+        |> Seq.toArray
+        |> String
+        |> fun s -> if s.EndsWith ".md" then s else $"{s}.md"
+
+    let create title dir : Note =
+        DateTime.UtcNow
+        |> fun now -> {
+            Id = newGuid
+            Title = title
+            Folder = dir
+            Filename = slugify title
+            CreatedAt = now
+            UpdatedAt = now
+        }
+
+    /// Get the absolute path for a note file
+    let path (note : Note) =
+        Path.Combine [| note.Folder; note.Filename |]
+
+    /// Daily journal path
+    let dailyPath (dir : string) (today : DateTime) =
+        today.ToString "yyyy-MM-dd" |> fun name -> Path.Combine(dir, $"{name}.md")
+
+type Editor = {
+    Text : string
+    Caret : int
+    Position : Position
+} with
+
+    static member Default : Editor = { Text = ""; Caret = 0; Position = (1, 1) }
+
+and Position = int * int
+
+
+
+module Editor =
+    let computePosition (text : string) (index : int) : Position =
+        let before = text.Substring(0, index)
+        let lns = before.Split "\n"
+        (lns.Length, index - before.LastIndexOf "\n")
 
 /// State Updates
 type Message =
     | SelectView of Views
     | ToggleScheme
+    | TextChanged of string
+    | CaretMoved of int
+
+/// Runtime Application State
+type Model = {
+    Config : Config
+    CurrentView : Views
+    Error : Error option
+    Editor : Editor
+} with
+
+    member this.lineNums =
+        this.Editor.Text.Split "\n" |> Array.mapi (fun i _ -> string (i + 1))
+
+    member this.rawContents = this.Editor.Text
+
+    member this.caretI = this.Editor.Caret
 
 module Model =
+    let private updatePosition state pos = { state with Model.Editor.Position = pos }
+
+    let private withCommand (cmd : Cmd<Message> option) state =
+        match cmd with
+        | Some c -> state, c
+        | None -> state, Cmd.none
+
+    let private toggleScheme state =
+        state.Config.Scheme
+        |> Scheme.toggle
+        |> fun scheme -> { state with Model.Config.Scheme = scheme }
+
     /// State mutation handlers
     let update (msg : Message) (state : Model) : Model * Cmd<Message> =
         match msg with
         | SelectView view -> { state with CurrentView = view }, Cmd.none
-        | ToggleScheme ->
-            {
-                state with
-                    Model.Config.Scheme = state.Config.Scheme |> Scheme.toggle
-            },
-            Cmd.none
+        | ToggleScheme -> toggleScheme state |> withCommand None
+        | TextChanged contents ->
+            Editor.computePosition contents state.Editor.Caret
+            |> updatePosition state
+            |> withCommand None
+        | CaretMoved index ->
+            Editor.computePosition state.Editor.Text index
+            |> updatePosition state
+            |> withCommand None
 
     let private store : Store = Store.FileSystem.getConfigDir |> Store.FileSystem.make
 
@@ -170,11 +258,19 @@ module Model =
         ensureDirs Store.FileSystem.getConfigDir |> ignore
 
         match store.Load() with
-        | Ok cfg -> { Config = cfg; CurrentView = Capture; Error = None }, Cmd.none
+        | Ok cfg ->
+            {
+                Config = cfg
+                CurrentView = Capture
+                Error = None
+                Editor = Editor.Default
+            },
+            Cmd.none
         | Error err ->
             {
                 Config = Config.Default
                 CurrentView = Capture
                 Error = Some err
+                Editor = Editor.Default
             },
             Cmd.none
