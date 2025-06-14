@@ -1,5 +1,4 @@
 ﻿(*
-    TODO: When should a file contain a namespace?
     TODO: Markdown syntax highlighting
 *)
 module NoteTaker.GUI
