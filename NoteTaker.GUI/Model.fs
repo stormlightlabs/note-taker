@@ -12,7 +12,7 @@ type Error =
     | LoadConfigError of string
     | ConfigDoesNotExistError
     | DirCreationError of (string * string)
-    | Unexpected
+    | Unexpected of string option
 
     member this.str : string = this.ToString()
 
@@ -38,6 +38,7 @@ type Config = {
 } with
 
     static member Default : Config = { Scheme = Light; RecentFiles = [] }
+
 
     static member Decoder : Decoder<Config> =
         Decode.object (fun get -> {
@@ -115,7 +116,7 @@ module Store =
 
             { Load = load; Save = save }
 
-type Views =
+type Section =
     | Inbox
     | Capture
     | Next
@@ -130,7 +131,7 @@ type Views =
         | Next -> "tasks"
         | Projects -> "projects"
 
-    static member List : List<Views> = [ Inbox; Capture; Next; Projects ]
+    static member List : List<Section> = [ Inbox; Capture; Next; Projects ]
 
 type Note = {
     Id : Guid
@@ -185,8 +186,6 @@ type Editor = {
 
 and Position = int * int
 
-
-
 module Editor =
     let computePosition (text : string) (index : int) : Position =
         let before = text.Substring(0, index)
@@ -195,17 +194,23 @@ module Editor =
 
 /// State Updates
 type Message =
-    | SelectView of Views
+    | SelectView of Section
     | ToggleScheme
     | TextChanged of string
     | CaretMoved of int
+    | FileSystemChanged
+    | LoadFiles
+    | FilesLoaded of string list
+    | SetError of Error
+    | ClearError
 
 /// Runtime Application State
 type Model = {
     Config : Config
-    CurrentView : Views
+    CurrentView : Section
     Error : Error option
     Editor : Editor
+    Files : string list
 } with
 
     member this.lineNums =
@@ -215,10 +220,32 @@ type Model = {
 
     member this.caretI = this.Editor.Caret
 
+module Watcher =
+    open Store.FileSystem
+
+    let private handler dispatch = fun _ -> dispatch FileSystemChanged
+
+    let private initWatcher dispatch (watcher : FileSystemWatcher) =
+        watcher.IncludeSubdirectories <- true
+        watcher.EnableRaisingEvents <- true
+        watcher.NotifyFilter <- NotifyFilters.FileName ||| NotifyFilters.LastWrite
+        watcher.Created.Add(handler dispatch)
+        watcher.Changed.Add(handler dispatch)
+        watcher.Renamed.Add(handler dispatch)
+        watcher.Deleted.Add(handler dispatch)
+
+        watcher
+
+    let setup (dispatch : Message -> unit) =
+        new FileSystemWatcher(getConfigDir) |> initWatcher dispatch
+
+    let command = Cmd.ofEffect (fun dispatch -> (setup dispatch) |> ignore)
+
 module Model =
     let private updatePosition state pos = { state with Model.Editor.Position = pos }
 
-    let private withCommand (cmd : Cmd<Message> option) state =
+    /// TODO: consider making this withMessage
+    let private withCommand (cmd : Cmd<Message> option) (state : Model) =
         match cmd with
         | Some c -> state, c
         | None -> state, Cmd.none
@@ -228,11 +255,26 @@ module Model =
         |> Scheme.toggle
         |> fun scheme -> { state with Model.Config.Scheme = scheme }
 
+    /// Wraps loading of files in async task to make IO call non-blocking
+    let private loadFilesTask =
+        fun path -> async { return Directory.GetFiles path |> Array.toList }
+
+    let private loadFilesCmd =
+        Cmd.OfAsync.either
+            loadFilesTask
+            Store.FileSystem.getConfigDir
+            FilesLoaded
+            (fun exn -> SetError(Unexpected(Some exn.Message)))
+
+    let private filesLoaded files state = { state with Files = files }
+    let private selectView view state = { state with CurrentView = view }
+    let private handleError (err : Error option) state = { state with Error = err }
+
     /// State mutation handlers
     let update (msg : Message) (state : Model) : Model * Cmd<Message> =
         match msg with
-        | SelectView view -> { state with CurrentView = view }, Cmd.none
-        | ToggleScheme -> toggleScheme state |> withCommand None
+        | SelectView view -> state |> selectView view |> withCommand None
+        | ToggleScheme -> state |> toggleScheme |> withCommand None
         | TextChanged contents ->
             Editor.computePosition contents state.Editor.Caret
             |> updatePosition state
@@ -241,12 +283,17 @@ module Model =
             Editor.computePosition state.Editor.Text index
             |> updatePosition state
             |> withCommand None
+        | LoadFiles -> withCommand (Some loadFilesCmd) state
+        | FilesLoaded files -> state |> filesLoaded files |> withCommand None
+        | SetError err -> state |> handleError (Some err) |> withCommand None
+        | ClearError -> state |> handleError None |> withCommand None
+        | _ -> withCommand None state
 
     let private store : Store = Store.FileSystem.getConfigDir |> Store.FileSystem.make
 
     /// Creates data directories on application initialization and returns full path to file
-    let private ensureDirs (baseDir : string) =
-        Views.List
+    let ensureDirs (baseDir : string) =
+        Section.List
         |> List.map (fun view ->
             view.dirName
             |> fun name -> Path.Combine(baseDir, name)
@@ -264,6 +311,7 @@ module Model =
                 CurrentView = Capture
                 Error = None
                 Editor = Editor.Default
+                Files = []
             },
             Cmd.none
         | Error err ->
@@ -272,5 +320,6 @@ module Model =
                 CurrentView = Capture
                 Error = Some err
                 Editor = Editor.Default
+                Files = []
             },
             Cmd.none

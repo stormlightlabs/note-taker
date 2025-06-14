@@ -13,15 +13,16 @@ module Tests =
             Directory.CreateDirectory dir |> ignore
             dir
 
+    [<Tests>]
     let workspaceSetupTests =
         testList "Workspace.ensure" [
             testCase "creates all canonical sub-folders"
             <| fun _ ->
                 let tempRoot = getAndCreateTempDir ()
-                let created = GUI.ensureDirs tempRoot
+                let created = Model.ensureDirs tempRoot
 
                 let expected =
-                    GUI.Views.List
+                    Section.List
                     |> List.map (fun v -> Path.Combine(tempRoot, v.dirName))
 
                 Expect.sequenceEqual
@@ -111,4 +112,5 @@ module Tests =
                 workspaceSetupTests
                 fileSystemStoreTests
                 memoryStoreTests
+                TextEditorTests.computePositionTests
             ])
