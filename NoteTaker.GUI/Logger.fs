@@ -19,6 +19,12 @@ module Logger =
     let private appLogger = create None
 
     let debug args = appLogger.LogDebug args
+
+    let dbg label value =
+        appLogger.LogDebug $"{label}: {value.ToString()}"
+
+        value
+
     let info args = appLogger.LogInformation args
     let warn args = appLogger.LogWarning args
     let error args = appLogger.LogError args

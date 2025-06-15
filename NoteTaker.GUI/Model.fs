@@ -94,14 +94,21 @@ module Store =
                 with err ->
                     DecoderError err.Message |> Error
 
+            let loadConfig' =
+                try
+                    File.ReadAllText configPath |> Config.decode
+                with e ->
+                    Error(LoadFileError e.Message)
+
+            let createConfig =
+                Config.Default
+                |> fun conf ->
+                    match saveConfig conf with
+                    | Ok _ -> Ok conf
+                    | Error err -> Error err
+
             let loadConfig () : Result<Config, Error> =
-                if File.Exists configPath then
-                    try
-                        File.ReadAllText configPath |> Config.decode
-                    with e ->
-                        Error(LoadFileError e.Message)
-                else
-                    Error ConfigDoesNotExistError
+                if File.Exists configPath then loadConfig' else createConfig
 
             { Save = saveConfig; Load = loadConfig }
 
@@ -203,6 +210,12 @@ type Message =
     | FilesLoaded of string list
     | SetError of Error
     | ClearError
+    | ToggleMenuButton of MenuButton
+
+and MenuButton =
+    | FileButton
+    | EditButton
+    | HelpButton
 
 /// Runtime Application State
 type Model = {
@@ -241,6 +254,11 @@ module Watcher =
 
     let command = Cmd.ofEffect (fun dispatch -> (setup dispatch) |> ignore)
 
+type Renderer = Model -> (Message -> unit) -> Avalonia.FuncUI.Types.IView
+
+type LRenderer = Model -> (Message -> unit) -> Avalonia.FuncUI.Types.IView list
+
+/// TODO: Some of the private state update functions could go in a Message module
 module Model =
     let private updatePosition state pos = { state with Model.Editor.Position = pos }
 
@@ -296,12 +314,15 @@ module Model =
         Section.List
         |> List.map (fun view ->
             view.dirName
-            |> fun name -> Path.Combine(baseDir, name)
+            |> fun name -> Path.Combine(baseDir, name) |> Logger.dbg "Path"
             |> Directory.CreateDirectory
-            |> _.FullName)
+            |> _.FullName
+            |> Logger.dbg "Created Dir")
 
     /// Initialize application state
     let init () : Model * Cmd<Message> =
+        Logger.info "Initializing application state"
+
         ensureDirs Store.FileSystem.getConfigDir |> ignore
 
         match store.Load() with
@@ -315,6 +336,8 @@ module Model =
             },
             Cmd.none
         | Error err ->
+            Logger.error $"Error: {err.ToString()}"
+
             {
                 Config = Config.Default
                 CurrentView = Capture
