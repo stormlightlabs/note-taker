@@ -9,13 +9,13 @@ open Avalonia.Controls.ApplicationLifetimes
 open Avalonia.Themes.Fluent
 open Avalonia.FuncUI.Hosts
 open Avalonia.FuncUI.Elmish
+open Avalonia.FuncUI.AvaloniaExtensions
 
 open NoteTaker
 open NoteTaker.Views
 
 /// View layer entry point
-let view (model : Model) (dispatch : Message -> unit) =
-    Windows.Main.render model dispatch
+let view (model : Model) (dispatch : Message -> unit) = Windows.Main.render model dispatch
 
 module Program =
     type MainWindow() as this =
@@ -29,6 +29,10 @@ module Program =
             Program.mkProgram Model.init Model.update view
             |> Program.withConsoleTrace
             |> Program.withHost this
+            |> Program.withSubscription (fun _ -> [
+                [ "sub:fileWatcher" ],
+                fun dispatch -> Watcher.setup dispatch :> System.IDisposable
+            ])
             |> Program.run
 
     type App() =
@@ -36,6 +40,7 @@ module Program =
 
         override this.Initialize() =
             this.Styles.Add(FluentTheme())
+            this.Styles.Load "avares://AvaloniaEdit/Themes/Fluent/AvaloniaEdit.xaml"
             this.RequestedThemeVariant <- Styling.ThemeVariant.Dark
 
         override this.OnFrameworkInitializationCompleted() =

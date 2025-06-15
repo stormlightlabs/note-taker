@@ -2,8 +2,8 @@ namespace NoteTaker.Views
 
 open Avalonia
 open Avalonia.Controls
-open Avalonia.FuncUI
 open Avalonia.FuncUI.DSL
+open Avalonia.FuncUI.Types
 open Avalonia.Media
 open Avalonia.Layout
 open NoteTaker
@@ -93,10 +93,85 @@ module Theme =
             Base0F = "#d33682"
         }
 
-
 open Theme
 
 module Widgets =
+    let private sample =
+        """# Markdown Syntax Guide
+
+Markdown is a lightweight markup language for formatting text. Here are some common elements:
+
+## Headings
+
+Use `#` for headings:
+
+```
+# Heading 1
+## Heading 2
+### Heading 3
+```
+
+## Emphasis
+
+- \*Italic\*: `*italic*` or `_italic_`
+- \*\*Bold\*\*: `**bold**` or `__bold__`
+- \~\~Strikethrough\~\~: `~~strikethrough~~`
+
+## Lists
+
+**Unordered list:**
+```
+- Item 1
+- Item 2
+  - Subitem
+```
+
+**Ordered list:**
+```
+1. First
+2. Second
+```
+
+## Links
+
+```
+[Link text](https://example.com)
+```
+
+## Images
+
+```
+![Alt text](https://example.com/image.png)
+```
+
+## Code
+
+Inline code: `` `code` ``
+
+Code block:
+```
+```python
+print("Hello, world!")
+```
+```
+
+## Blockquotes
+
+```
+> This is a quote.
+```
+
+## Horizontal Rule
+
+```
+---
+```
+
+---
+
+Try writing your own markdown using these elements!
+"""
+
     module Preview =
         open FSharp.Formatting.Markdown
 
@@ -108,7 +183,7 @@ module Widgets =
                 TextBlock.margin (0.0, 4.0)
             ]
 
-        let rec renderSpans (spans : MarkdownSpans) : Types.IView list =
+        let rec renderSpans (spans : MarkdownSpans) : IView list =
             spans
             |> Seq.toList
             |> List.collect (fun span ->
@@ -144,7 +219,6 @@ module Widgets =
                 | LatexInlineMath(_code, _range) -> failwith "todo"
                 | LatexDisplayMath(_code, _range) -> failwith "todo"
                 | EmbedSpans(_customSpans, _range) -> failwith "todo")
-
 
         // | DirectLink(body = b; link = url) -> [
         //     TextBlock.create [
@@ -202,21 +276,22 @@ module Widgets =
         //     | _ -> [] // unhandled paragraph kinds
 
         /// TODO: "doc.Paragraphs |> Seq.toList |> List.collect renderParagraph"
-        let render (markdown : string) : Types.IView =
+        let render (markdown : string) : IView =
             let _doc = Markdown.Parse markdown
 
             StackPanel.create [ StackPanel.children [] ]
 
     module Content =
-        let render (model : Model) _ =
-            TextBlock.create [
-                TextBlock.text $"Current View: {model.CurrentView.label}"
-                TextBlock.verticalAlignment VerticalAlignment.Center
-                TextBlock.horizontalAlignment HorizontalAlignment.Center
-            ]
+        let render : Renderer =
+            fun model _ ->
+                TextBlock.create [
+                    TextBlock.text $"Current View: {model.CurrentView.label}"
+                    TextBlock.verticalAlignment VerticalAlignment.Center
+                    TextBlock.horizontalAlignment HorizontalAlignment.Center
+                ]
 
     module Sidebar =
-        let sidebarItems _ (dispatch : Message -> unit) : List<Types.IView> =
+        let sidebarItems _ (dispatch : Message -> unit) : List<IView> =
             Section.List
             |> List.map (fun view ->
                 Button.create [
@@ -224,8 +299,9 @@ module Widgets =
                     Button.onClick (fun _ -> dispatch (SelectView view))
                 ])
 
-        let render state dispatch =
-            StackPanel.create [ StackPanel.children (sidebarItems state dispatch) ]
+        let render : Renderer =
+            fun state dispatch ->
+                StackPanel.create [ StackPanel.children (sidebarItems state dispatch) ]
 
     module Sidebars =
         // <Style Selector=".NavSidebar">
@@ -254,7 +330,7 @@ module Widgets =
             let private isSelected view state = state.CurrentView = view
 
             let private renderItem (model : Model) dispatch =
-                let r (item : Section) : Types.IView =
+                let r (item : Section) : IView =
                     let selected = isSelected item model
 
                     Button.create [
@@ -264,14 +340,12 @@ module Widgets =
                         Button.horizontalAlignment HorizontalAlignment.Stretch
                         Button.background (if selected then t.Base02 else t.Base01)
                         Button.foreground (if selected then t.Base0D else t.Base05)
-                        Button.fontWeight (
-                            if selected then FontWeight.Bold else FontWeight.Medium
-                        )
+                        Button.fontWeight (if selected then FontWeight.Bold else FontWeight.Medium)
                     ]
 
                 r
 
-            let private items model dispatch : Types.IView list =
+            let private items model dispatch : IView list =
                 Section.List |> List.map (renderItem model dispatch)
 
             let render model dispatch =
@@ -285,11 +359,43 @@ module Widgets =
                     TextBlock.margin (Thickness(8, 0, 0, 8))
                 ]
 
-            let listing (files : string list) =
+            let listing (files : string list) : IView list =
                 files |> List.map (fun f -> Button.create [ Button.content f ])
 
-            let render (model : Model) dispatch =
-                StackPanel.create [ StackPanel.children [] ]
+            let render (model : Model) _dispatch =
+                StackPanel.create [
+                    StackPanel.children (
+                        match model.Files with
+                        | [] -> [ TextBlock.create [ TextBlock.text "No Files" ] ]
+                        | files -> listing files
+                    )
+                ]
+
+    module Menu =
+        let private renderButton (dispatch : Message -> unit) : string * Message -> IView =
+            fun (label : string, msg : Message) ->
+                (Button.create [
+                    Button.content label
+                    Button.onClick (fun _ -> dispatch msg)
+                    Button.margin (Thickness(4, 2, 4, 2))
+
+                ])
+
+        let private actions dispatch : IView list =
+            [|
+                ("File", ToggleMenuButton FileButton)
+                ("Edit", ToggleMenuButton EditButton)
+                ("Help", ToggleMenuButton HelpButton)
+            |]
+            |> Array.map (renderButton dispatch)
+            |> Array.toList
+
+        let render (_model : Model) dispatch =
+            DockPanel.create [
+                DockPanel.dock Dock.Top
+                DockPanel.lastChildFill false
+                DockPanel.children (actions dispatch)
+            ]
 
     module Editor =
         module private LineNumbers =
@@ -336,28 +442,29 @@ module Widgets =
                     TextBlock.margin 4.0
                 ]
 
-        let render (model : Model) (dispatch : Message -> unit) =
-            DockPanel.create [
-                DockPanel.children [
-                    Grid.create [
-                        Grid.columnDefinitions "Auto, *"
-                        Grid.children [
-                            LineNumbers.render 0 model dispatch
-                            EditorBody.render 1 model dispatch
-                        ]
-                    ]
-                    StatusBar.render model dispatch
-                ]
-            ]
+        let render (_model : Model) (_dispatch : Message -> unit) = TextBlock.create []
+
+open Widgets
 
 module Windows =
-    open Widgets
-
     module Main =
-        let render model dispatch =
-            DockPanel.create [
-                DockPanel.children [
-                    Sidebar.render model dispatch
-                    Content.render model dispatch
+        let render : Renderer =
+            fun model dispatch ->
+                DockPanel.create [
+                    DockPanel.children [
+                        Widgets.Menu.render model dispatch
+                        Border.create [
+                            Border.dock Dock.Left
+                            Border.width 128
+                            Border.background Brushes.DarkSlateBlue
+                            Border.child (Sidebars.Navigation.render model dispatch)
+                        ]
+                        Border.create [
+                            Border.dock Dock.Left
+                            Border.width 128
+                            Border.background Brushes.LightSteelBlue
+                            Border.child (Sidebars.FileBrowser.render model dispatch)
+                        ]
+                        Editor.render model dispatch
+                    ]
                 ]
-            ]
