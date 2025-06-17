@@ -4,6 +4,97 @@ open System
 open System.IO
 open Elmish
 open Thoth.Json.Net
+open Avalonia.Input
+open TextMateSharp.Grammars
+open Avalonia.Media
+open Avalonia
+open TextMateSharp.Registry
+open Avalonia.Media.TextFormatting
+
+module Data =
+    module MD =
+        let sample =
+            """# Markdown Syntax Guide
+
+Markdown is a lightweight markup language for formatting text. Here are some common elements:
+
+## Headings
+
+Use `#` for headings:
+
+```
+# Heading 1
+## Heading 2
+### Heading 3
+```
+
+## Emphasis
+
+- \*Italic\*: `*italic*` or `_italic_`
+- \*\*Bold\*\*: `**bold**` or `__bold__`        let grammarPath =
+            Path.Combine(
+                AppDomain.CurrentDomain.BaseDirectory,
+                "Assets",
+                "markdown.tmLanguage.json"
+            )
+
+        Cmd.ofMsg (LoadGrammar grammarPath)trikethrough\~\~: `~~strikethrough~~`
+
+## Lists
+
+**Unordered list:**
+```
+- Item 1
+- Item 2
+  - Subitem
+```
+
+**Ordered list:**
+```
+1. First
+2. Second
+```
+
+## Links
+
+```
+[Link text](https://example.com)
+```
+
+## Images
+
+```
+![Alt text](https://example.com/image.png)
+```
+
+## Code
+
+Inline code: `` `code` ``
+
+Code block:
+```
+```python
+print("Hello, world!")
+```
+```
+
+## Blockquotes
+
+```
+> This is a quote.
+```
+
+## Horizontal Rule
+
+```
+---
+```
+
+---
+
+Try writing your own markdown using these elements!
+"""
+
 
 type Error =
     | LoadFileError of string
@@ -15,6 +106,149 @@ type Error =
     | Unexpected of string option
 
     member this.str : string = this.ToString()
+
+/// Represents base16 theme
+type Theme = {
+    Name : string
+    Author : string
+    IsDark : bool
+    /// Default Background
+    Base00 : Color
+    /// Lighter Background (Status bars, line numbers)
+    Base01 : Color
+    /// Selection Background
+    Base02 : Color
+    /// Comments, Invisibles, Line Highlighting
+    Base03 : Color
+    /// Dark Foreground (Status bars)
+    Base04 : Color
+    /// Default Foreground, Caret, Delimiters, Operators
+    Base05 : Color
+    /// Light Foreground (Not often used)
+    Base06 : Color
+    /// Light Background (Not often used)
+    Base07 : Color
+    /// Variables, XML Tags, Markup Link Text, Markup Lists, Diff Deleted
+    Base08 : Color
+    /// Integers, Boolean, Constants, XML Attributes, Markup Link Url
+    Base09 : Color
+    /// Classes, Markup Bold, Search Text Background
+    Base0A : Color
+    /// Strings, Inherited Class, Markup Code, Diff Inserted
+    Base0B : Color
+    /// Support, Regular Expressions, Escape Characters, Markup Quotes
+    Base0C : Color
+    /// Functions, Methods, Attribute IDs, Headings
+    Base0D : Color
+    /// Keywords, Storage, Selector, Markup Italic, Diff Changed
+    Base0E : Color
+    /// Deprecated, Opening/Closing Embedded Language Tags
+    Base0F : Color
+}
+
+module Theme =
+    module Presets =
+        let solarizedDark : Theme = {
+            Name = "Solarized Dark"
+            Author = "Ethan Schoonover"
+            IsDark = true
+            Base00 = "#002b36" |> Color.Parse
+            Base01 = "#073642" |> Color.Parse
+            Base02 = "#586e75" |> Color.Parse
+            Base03 = "#657b83" |> Color.Parse
+            Base04 = "#839496" |> Color.Parse
+            Base05 = "#93a1a1" |> Color.Parse
+            Base06 = "#eee8d5" |> Color.Parse
+            Base07 = "#fdf6e3" |> Color.Parse
+            Base08 = "#dc322f" |> Color.Parse
+            Base09 = "#cb4b16" |> Color.Parse
+            Base0A = "#b58900" |> Color.Parse
+            Base0B = "#859900" |> Color.Parse
+            Base0C = "#2aa198" |> Color.Parse
+            Base0D = "#268bd2" |> Color.Parse
+            Base0E = "#6c71c4" |> Color.Parse
+            Base0F = "#d33682" |> Color.Parse
+        }
+
+        let solarizedLight : Theme = {
+            Name = "Solarized Light"
+            Author = "Ethan Schoonover"
+            IsDark = false
+            Base00 = "#fdf6e3" |> Color.Parse
+            Base01 = "#eee8d5" |> Color.Parse
+            Base02 = "#93a1a1" |> Color.Parse
+            Base03 = "#839496" |> Color.Parse
+            Base04 = "#657b83" |> Color.Parse
+            Base05 = "#586e75" |> Color.Parse
+            Base06 = "#073642" |> Color.Parse
+            Base07 = "#002b36" |> Color.Parse
+            Base08 = "#dc322f" |> Color.Parse
+            Base09 = "#cb4b16" |> Color.Parse
+            Base0A = "#b58900" |> Color.Parse
+            Base0B = "#859900" |> Color.Parse
+            Base0C = "#2aa198" |> Color.Parse
+            Base0D = "#268bd2" |> Color.Parse
+            Base0E = "#6c71c4" |> Color.Parse
+            Base0F = "#d33682" |> Color.Parse
+        }
+
+    let mapping theme =
+        [
+            "punctuation.definition.heading.markdown", theme.Base04
+            "markup.heading.markdown", theme.Base0D
+            "markup.heading.setext.1.markdown", theme.Base0D
+            "markup.heading.setext.2.markdown", theme.Base0D
+            "markup.bold.markdown", theme.Base0B
+            "markup.italic.markdown", theme.Base0E
+            "markup.bold.italic.markdown", theme.Base0B
+            "punctuation.definition.blockquote.markdown", theme.Base03
+            "markup.quote.markdown", theme.Base0C
+            "punctuation.definition.list.begin.markdown", theme.Base03
+            "markup.list.unnumbered.markdown", theme.Base0A
+            "markup.list.numbered.markdown", theme.Base0A
+            "punctuation.definition.list.number.markdown", theme.Base03
+            "markup.underline.link.markdown", theme.Base09
+            "markup.link.inline.markdown", theme.Base09
+            "markup.link.reference.markdown", theme.Base09
+            "string.other.link.title.markdown", theme.Base0B
+            "string.other.link.description.markdown", theme.Base0B
+            "punctuation.definition.string.begin.markdown", theme.Base04
+            "punctuation.definition.string.end.markdown", theme.Base04
+            "punctuation.definition.link.begin.markdown", theme.Base04
+            "punctuation.definition.link.end.markdown", theme.Base04
+            "markup.image.markdown", theme.Base08
+            "string.other.image.title.markdown", theme.Base08
+
+            // Inline code
+            "markup.inline.raw.markdown", theme.Base0B
+            "punctuation.definition.raw.begin.markdown", theme.Base04
+            "punctuation.definition.raw.end.markdown", theme.Base04
+
+            "markup.fenced_code.markdown", theme.Base0B
+            "fenced_code.block.marker.backtick.markdown", theme.Base03
+            "fenced_code.block.language.markdown", theme.Base0E
+
+            // Horizontal rules
+            "meta.separator.markdown", theme.Base03
+            "markup.table.markdown", theme.Base0A
+            "punctuation.separator.table.markdown", theme.Base03
+            "markup.footnote.definition.markdown", theme.Base09
+            "markup.footnote.reference.markdown", theme.Base09
+
+            // Emphasis markers
+            "punctuation.definition.emphasis.markdown", theme.Base04
+
+            // YAML front matter
+            "meta.block.yaml.markdown", theme.Base0F
+            "punctuation.definition.metadata.markdown", theme.Base0F
+            "meta.separator.metadata.markdown", theme.Base0F
+
+            // Math expr
+            "markup.math.inline.markdown", theme.Base0C
+            "punctuation.definition.math.begin.markdown", theme.Base04
+            "punctuation.definition.math.end.markdown", theme.Base04
+        ]
+        |> Map.ofList
 
 type Scheme =
     | Light
@@ -88,9 +322,7 @@ module Store =
 
             let saveConfig (conf : Config) : Result<unit, Error> =
                 try
-                    Config.encode conf
-                    |> fun data -> File.WriteAllText(configPath, data)
-                    |> Ok
+                    Config.encode conf |> (fun data -> File.WriteAllText(configPath, data)) |> Ok
                 with err ->
                     DecoderError err.Message |> Error
 
@@ -183,34 +415,111 @@ module Note =
     let dailyPath (dir : string) (today : DateTime) =
         today.ToString "yyyy-MM-dd" |> fun name -> Path.Combine(dir, $"{name}.md")
 
-type Editor = {
-    Text : string
-    Caret : int
-    Position : Position
+type EditorState = {
+    Content : string
+    Lines : string list
+    CurrentFile : string option // Track the currently open file path
+    GrammarRegistry : Registry
+    TmScope : string option
+    ScopeColorMap : Map<string, Color>
+    Caret : CaretPosition
+    Selection : SelectionRange option
+    VisibleRange : (int * int)
+    ScrollY : float
+    Cache : Map<int, LineMeasurement>
+    /// Line No.: open, close
+    BracketMatches : Map<int, (int * int)>
+    /// Line, Column hits
+    SearchQuery : string
+    SearchResults : (int * int) List
+    ViewportSize : Size
+    Folds : FoldRange list
+    LineHeight : float
+    FontSize : float
 } with
 
-    static member Default : Editor = { Text = ""; Caret = 0; Position = (1, 1) }
+    static member Default : EditorState = {
+        Content = ""
+        Lines = []
+        CurrentFile = None // No file open initially
+        GrammarRegistry = null
+        TmScope = None
+        ScopeColorMap = Theme.Presets.solarizedDark |> Theme.mapping
+        Caret = { Line = 0; Column = 0 }
+        Selection = None
+        VisibleRange = (0, 0)
+        ScrollY = 0.0
+        Cache = Map.empty
+        BracketMatches = Map.empty
+        SearchQuery = ""
+        SearchResults = []
+        ViewportSize = Size(0.0, 0.0)
+        Folds = []
+        LineHeight = 16.0
+        FontSize = 14.0
+    }
 
-and Position = int * int
+and CaretPosition = {
+    Line : int
+    Column : int
+} with
+
+    static member fromPair line col : CaretPosition = { Line = line; Column = col }
+
+and SelectionRange = { Start : CaretPosition; End : CaretPosition }
+
+and LineMeasurement = {
+    Layout : TextLayout
+    Width : float
+} with
+
+    static member from f : LineMeasurement = { Layout = f; Width = f.Width }
+
+and FoldRange = { From : int; To : int; Folded : bool }
 
 module Editor =
-    let computePosition (text : string) (index : int) : Position =
-        let before = text.Substring(0, index)
-        let lns = before.Split "\n"
-        (lns.Length, index - before.LastIndexOf "\n")
+    let computePosition (text : string) (index : int) : CaretPosition =
+        text.Substring(0, index)
+        |> fun before ->
+            before.Split "\n"
+            |> _.Length
+            |> CaretPosition.fromPair (index - before.LastIndexOf "\n")
+
+
 
 /// State Updates
 type Message =
     | SelectView of Section
     | ToggleScheme
-    | TextChanged of string
-    | CaretMoved of int
     | FileSystemChanged
     | LoadFiles
     | FilesLoaded of string list
     | SetError of Error
     | ClearError
     | ToggleMenuButton of MenuButton
+    | CreateSampleReadme
+    // File Operations
+    | OpenFile of string
+    | FileOpened of string * string // filepath, content
+    | NewFile
+    | SaveFile
+    | SaveFileAs of string
+    // Editor Specific
+    | LoadGrammar of string // Just pass the grammar file path
+    | RegisterColorMap of (string * Color) list
+    | OnKeyDown of KeyEventArgs
+    | OnTextInput of TextInputEventArgs
+    | OnPointerPressed of PointerPressedEventArgs
+    | ScrollBy of float
+    | SetVisibleRange of (int * int)
+    | ResizeViewport of Size
+    | UpdateCaret of CaretPosition
+    | UpdateSelection of SelectionRange option
+    | CacheLineMeasurement of int * LineMeasurement
+    | ToggleFold of int
+    | UpdateBracketMatches of Map<int, (int * int)>
+    | PerformSearch of string
+    | SetSearchReults of (int * int) list
 
 and MenuButton =
     | FileButton
@@ -222,16 +531,9 @@ type Model = {
     Config : Config
     CurrentView : Section
     Error : Error option
-    Editor : Editor
+    Editor : EditorState
     Files : string list
-} with
-
-    member this.lineNums =
-        this.Editor.Text.Split "\n" |> Array.mapi (fun i _ -> string (i + 1))
-
-    member this.rawContents = this.Editor.Text
-
-    member this.caretI = this.Editor.Caret
+}
 
 module Watcher =
     open Store.FileSystem
@@ -254,15 +556,11 @@ module Watcher =
 
     let command = Cmd.ofEffect (fun dispatch -> (setup dispatch) |> ignore)
 
-type Renderer = Model -> (Message -> unit) -> Avalonia.FuncUI.Types.IView
+type Renderer = Model -> (Message -> unit) -> FuncUI.Types.IView
 
-type LRenderer = Model -> (Message -> unit) -> Avalonia.FuncUI.Types.IView list
+type LRenderer = Model -> (Message -> unit) -> FuncUI.Types.IView list
 
-/// TODO: Some of the private state update functions could go in a Message module
 module Model =
-    let private updatePosition state pos = { state with Model.Editor.Position = pos }
-
-    /// TODO: consider making this withMessage
     let private withCommand (cmd : Cmd<Message> option) (state : Model) =
         match cmd with
         | Some c -> state, c
@@ -273,18 +571,62 @@ module Model =
         |> Scheme.toggle
         |> fun scheme -> { state with Model.Config.Scheme = scheme }
 
-    /// Wraps loading of files in async task to make IO call non-blocking
-    let private loadFilesTask =
-        fun path -> async { return Directory.GetFiles path |> Array.toList }
+    /// Load files synchronously
+    let private loadFilesSync path =
+        try
+            Directory.GetFiles path |> Array.toList
+        with _ -> [] // Return empty list on error to avoid breaking the UI
 
     let private loadFilesCmd =
-        Cmd.OfAsync.either
-            loadFilesTask
-            Store.FileSystem.getConfigDir
-            FilesLoaded
-            (fun exn -> SetError(Unexpected(Some exn.Message)))
+        Cmd.ofMsg (FilesLoaded(loadFilesSync Store.FileSystem.getConfigDir))
 
-    let private filesLoaded files state = { state with Files = files }
+    /// Create a sample README.md file when no markdown files exist
+    let private createSampleReadme path =
+        try
+            let filePath = Path.Combine(path, "README.md")
+            File.WriteAllText(filePath, Data.MD.sample)
+            LoadFiles // Reload files after creating README
+        with ex ->
+            SetError(Unexpected(Some ex.Message))
+
+    let private createSampleReadmeCmd =
+        Cmd.ofMsg (createSampleReadme Store.FileSystem.getConfigDir)
+
+    /// Initialize TextMate grammar for syntax highlighting
+    let private initGrammarCmd =
+        let grammarPath =
+            Path.Combine(
+                AppDomain.CurrentDomain.BaseDirectory,
+                "Assets",
+                "markdown.tmLanguage.json"
+            )
+
+        Cmd.ofMsg (LoadGrammar grammarPath)
+
+    let private filesLoaded files state =
+        let updatedState = { state with Files = files }
+        // Check if there are any markdown files
+        let hasMarkdownFiles =
+            files
+            |> List.exists (fun file ->
+                let ext = Path.GetExtension(file).ToLowerInvariant()
+                ext = ".md" || ext = ".markdown")
+
+        if hasMarkdownFiles then
+            // Look for README.md and auto-open it
+            let readmeFile =
+                files
+                |> List.tryFind (fun file ->
+                    let fileName = Path.GetFileName(file).ToLowerInvariant()
+                    fileName = "readme.md")
+
+            match readmeFile with
+            | Some readme -> updatedState, Some(Cmd.ofMsg (OpenFile readme))
+            | None -> updatedState, None
+        else
+            // No markdown files found, create a sample README
+            updatedState, Some createSampleReadmeCmd
+
     let private selectView view state = { state with CurrentView = view }
     let private handleError (err : Error option) state = { state with Error = err }
 
@@ -293,19 +635,195 @@ module Model =
         match msg with
         | SelectView view -> state |> selectView view |> withCommand None
         | ToggleScheme -> state |> toggleScheme |> withCommand None
-        | TextChanged contents ->
-            Editor.computePosition contents state.Editor.Caret
-            |> updatePosition state
-            |> withCommand None
-        | CaretMoved index ->
-            Editor.computePosition state.Editor.Text index
-            |> updatePosition state
-            |> withCommand None
+        | FileSystemChanged -> withCommand (Some loadFilesCmd) state
         | LoadFiles -> withCommand (Some loadFilesCmd) state
-        | FilesLoaded files -> state |> filesLoaded files |> withCommand None
+        | FilesLoaded files ->
+            let newState, cmdOpt = filesLoaded files state
+            withCommand cmdOpt newState
         | SetError err -> state |> handleError (Some err) |> withCommand None
         | ClearError -> state |> handleError None |> withCommand None
-        | _ -> withCommand None state
+        | ToggleMenuButton button ->
+            // Note: ActiveMenu field doesn't exist in EditorState, this might need to be added to the model
+            withCommand None state
+        | CreateSampleReadme -> withCommand (Some createSampleReadmeCmd) state
+        // File Operations
+        | OpenFile filePath ->
+            // Load file content synchronously
+            try
+                let content = File.ReadAllText(filePath)
+
+                let lines =
+                    content.Split([| '\r'; '\n' |], StringSplitOptions.None) |> Array.toList
+
+                {
+                    state with
+                        Editor = {
+                            state.Editor with
+                                CurrentFile = Some filePath
+                                Content = content
+                                Lines = lines
+                                Cache = Map.empty // Clear cache when loading new content
+                                Caret = { Line = 0; Column = 0 } // Reset caret position
+                                Selection = None // Clear selection
+                        }
+                },
+                Cmd.none
+            with ex ->
+                state, Cmd.ofMsg (SetError(LoadFileError ex.Message))
+
+        | FileOpened(filePath, content) ->
+            // This message is now unused since we handle everything in OpenFile
+            let lines = content.Split([| '\r'; '\n' |], StringSplitOptions.None) |> Array.toList
+
+            {
+                state with
+                    Editor = {
+                        state.Editor with
+                            CurrentFile = Some filePath
+                            Content = content
+                            Lines = lines
+                            Cache = Map.empty // Clear cache when loading new content
+                            Caret = { Line = 0; Column = 0 } // Reset caret position
+                            Selection = None // Clear selection
+                    }
+            }
+            |> withCommand None
+        | NewFile ->
+            {
+                state with
+                    Editor = { state.Editor with CurrentFile = None; Content = "" }
+            }
+            |> withCommand None
+        | SaveFile ->
+            match state.Editor.CurrentFile with
+            | Some filePath ->
+                try
+                    File.WriteAllText(filePath, state.Editor.Content)
+                    state, Cmd.none
+                with ex ->
+                    state, Cmd.ofMsg (SetError(Unexpected(Some ex.Message)))
+            | None ->
+                // No file is currently open, cannot save
+                state, Cmd.none
+        | SaveFileAs newFilePath ->
+            try
+                File.WriteAllText(newFilePath, state.Editor.Content)
+                // Update the model to reflect the new file
+                {
+                    state with
+                        Editor = { state.Editor with CurrentFile = Some newFilePath }
+                },
+                Cmd.none
+            with ex ->
+                state, Cmd.ofMsg (SetError(Unexpected(Some ex.Message)))
+        // Editor Specific Updates
+        | LoadGrammar grammarPath ->
+            // Create a simple registry that can load the markdown grammar
+            try
+                let options = new RegistryOptions(ThemeName.DarkPlus)
+                let tmScope = options.GetScopeByLanguageId "markdown"
+
+                let registry = new Registry(options)
+
+
+                {
+                    state with
+                        Editor = {
+                            state.Editor with
+                                GrammarRegistry = registry
+                                TmScope = Some tmScope
+                        }
+                }
+                |> withCommand None
+            with ex ->
+                // If grammar loading fails, continue without syntax highlighting
+                state,
+                Cmd.ofMsg (SetError(Unexpected(Some $"Failed to load grammar: {ex.Message}")))
+        | RegisterColorMap colors ->
+            {
+                state with
+                    Editor = { state.Editor with ScopeColorMap = Map.ofList colors }
+            }
+            |> withCommand None
+        | OnKeyDown args ->
+            // Handle key down events - could be used for shortcuts, navigation, etc.
+            withCommand None state
+        | OnTextInput args ->
+            // Handle text input events - would update the document content
+            withCommand None state
+        | OnPointerPressed args ->
+            // Handle mouse/pointer events - could update caret position or selection
+            withCommand None state
+        | ScrollBy offset ->
+            {
+                state with
+                    Editor = {
+                        state.Editor with
+                            ScrollY = state.Editor.ScrollY + offset
+                    }
+            }
+            |> withCommand None
+        | SetVisibleRange(start, count) ->
+            {
+                state with
+                    Editor = { state.Editor with VisibleRange = (start, count) }
+            }
+            |> withCommand None
+        | ResizeViewport size ->
+            {
+                state with
+                    Editor = { state.Editor with ViewportSize = size }
+            }
+            |> withCommand None
+        | UpdateCaret position ->
+            {
+                state with
+                    Editor = { state.Editor with Caret = position }
+            }
+            |> withCommand None
+        | UpdateSelection selection ->
+            {
+                state with
+                    Editor = { state.Editor with Selection = selection }
+            }
+            |> withCommand None
+        | CacheLineMeasurement(lineNumber, measurement) ->
+            {
+                state with
+                    Editor = {
+                        state.Editor with
+                            Cache = Map.add lineNumber measurement state.Editor.Cache
+                    }
+            }
+            |> withCommand None
+        | ToggleFold lineNumber ->
+            let folds =
+                state.Editor.Folds
+                |> List.map (fun fold ->
+                    if fold.From = lineNumber then
+                        { fold with Folded = not fold.Folded }
+                    else
+                        fold)
+
+            { state with Editor = { state.Editor with Folds = folds } } |> withCommand None
+        | UpdateBracketMatches matches ->
+            {
+                state with
+                    Editor = { state.Editor with BracketMatches = matches }
+            }
+            |> withCommand None
+        | PerformSearch query ->
+            {
+                state with
+                    Editor = { state.Editor with SearchQuery = query }
+            }
+            |> withCommand None
+        | SetSearchReults results ->
+            {
+                state with
+                    Editor = { state.Editor with SearchResults = results }
+            }
+            |> withCommand None
 
     let private store : Store = Store.FileSystem.getConfigDir |> Store.FileSystem.make
 
@@ -327,22 +845,31 @@ module Model =
 
         match store.Load() with
         | Ok cfg ->
-            {
+            let initialModel = {
                 Config = cfg
                 CurrentView = Capture
                 Error = None
-                Editor = Editor.Default
+                Editor = EditorState.Default
                 Files = []
-            },
-            Cmd.none
+            }
+
+            // Combine initialization commands:
+            // 1. Set up file system watcher
+            // 2. Load files initially
+            // 3. Initialize TextMate grammar for syntax highlighting
+            let initCommands = [ Watcher.command; loadFilesCmd; initGrammarCmd ]
+
+            initialModel, Cmd.batch initCommands
         | Error err ->
             Logger.error $"Error: {err.ToString()}"
 
-            {
+            let errorModel = {
                 Config = Config.Default
                 CurrentView = Capture
                 Error = Some err
-                Editor = Editor.Default
+                Editor = EditorState.Default
                 Files = []
-            },
-            Cmd.none
+            }
+
+            // Even on error, set up basic functionality
+            errorModel, Watcher.command

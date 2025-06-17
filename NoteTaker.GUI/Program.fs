@@ -40,7 +40,6 @@ module Program =
 
         override this.Initialize() =
             this.Styles.Add(FluentTheme())
-            this.Styles.Load "avares://AvaloniaEdit/Themes/Fluent/AvaloniaEdit.xaml"
             this.RequestedThemeVariant <- Styling.ThemeVariant.Dark
 
         override this.OnFrameworkInitializationCompleted() =

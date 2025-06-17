@@ -1,20 +1,46 @@
 namespace NoteTaker.Tests
 
 open Expecto
-open NoteTaker.Editor
+open NoteTaker
 
-module TextEditorTests =
-    let private startTextTest =
-        testCase "start of text"
-        <| fun _args ->
-            let ln, col = computePosition "" 0
-            Expect.equal (ln, col) (1, 1) "start should be at 1,1"
+module ModelTests =
 
-    let private movedCaretTest = testCase "middle of content" <| fun _args ->
-        let ln, col = computePosition "foo\nbar" 7
-        Expect.equal (ln, col) (2, 4) "Caret should be at col 4 of line 2"
+    let private testFilesLoadedWithoutMarkdown =
+        testCase "FilesLoaded without markdown files should update files"
+        <| fun _ ->
+            let initialState = {
+                Config = Config.Default
+                CurrentView = Capture
+                Error = None
+                Editor = EditorState.Default
+                Files = []
+            }
 
+            let nonMarkdownFiles = [ "config.json"; "app.exe"; "data.txt" ]
+            let message = FilesLoaded nonMarkdownFiles
+
+            let newState, _cmd = Model.update message initialState
+
+            Expect.equal newState.Files nonMarkdownFiles "Files should be updated"
+
+    let private testFilesLoadedWithMarkdown =
+        testCase "FilesLoaded with markdown files should update files"
+        <| fun _ ->
+            let initialState = {
+                Config = Config.Default
+                CurrentView = Capture
+                Error = None
+                Editor = EditorState.Default
+                Files = []
+            }
+
+            let filesWithMarkdown = [ "config.json"; "existing.md"; "data.txt" ]
+            let message = FilesLoaded filesWithMarkdown
+
+            let newState, _cmd = Model.update message initialState
+
+            Expect.equal newState.Files filesWithMarkdown "Files should be updated"
 
     [<Tests>]
-    let computePositionTests =
-        testList "computePosition" [ startTextTest; movedCaretTest ]
+    let readmeCreationTests =
+        testList "File loading" [ testFilesLoadedWithoutMarkdown; testFilesLoadedWithMarkdown ]

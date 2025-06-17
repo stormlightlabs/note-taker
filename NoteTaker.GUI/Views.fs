@@ -1,5 +1,6 @@
 namespace NoteTaker.Views
 
+open System.IO
 open Avalonia
 open Avalonia.Controls
 open Avalonia.FuncUI.DSL
@@ -7,170 +8,12 @@ open Avalonia.FuncUI.Types
 open Avalonia.Media
 open Avalonia.Layout
 open NoteTaker
+open NoteTaker.Controls
 
-/// Represents base16 theme
-type Theme = {
-    Name : string
-    Author : string
-    IsDark : bool
-    /// Default Background
-    Base00 : string
-    /// Lighter Background (Status bars, line numbers)
-    Base01 : string
-    /// Selection Background
-    Base02 : string
-    /// Comments, Invisibles, Line Highlighting
-    Base03 : string
-    /// Dark Foreground (Status bars)
-    Base04 : string
-    /// Default Foreground, Caret, Delimiters, Operators
-    Base05 : string
-    /// Light Foreground (Not often used)
-    Base06 : string
-    /// Light Background (Not often used)
-    Base07 : string
-    /// Variables, XML Tags, Markup Link Text, Markup Lists, Diff Deleted
-    Base08 : string
-    /// Integers, Boolean, Constants, XML Attributes, Markup Link Url
-    Base09 : string
-    /// Classes, Markup Bold, Search Text Background
-    Base0A : string
-    /// Strings, Inherited Class, Markup Code, Diff Inserted
-    Base0B : string
-    /// Support, Regular Expressions, Escape Characters, Markup Quotes
-    Base0C : string
-    /// Functions, Methods, Attribute IDs, Headings
-    Base0D : string
-    /// Keywords, Storage, Selector, Markup Italic, Diff Changed
-    Base0E : string
-    /// Deprecated, Opening/Closing Embedded Language Tags
-    Base0F : string
-}
-
-module Theme =
-    module Presets =
-        let solarizedDark : Theme = {
-            Name = "Solarized Dark"
-            Author = "Ethan Schoonover"
-            IsDark = true
-            Base00 = "#002b36"
-            Base01 = "#073642"
-            Base02 = "#586e75"
-            Base03 = "#657b83"
-            Base04 = "#839496"
-            Base05 = "#93a1a1"
-            Base06 = "#eee8d5"
-            Base07 = "#fdf6e3"
-            Base08 = "#dc322f"
-            Base09 = "#cb4b16"
-            Base0A = "#b58900"
-            Base0B = "#859900"
-            Base0C = "#2aa198"
-            Base0D = "#268bd2"
-            Base0E = "#6c71c4"
-            Base0F = "#d33682"
-        }
-
-        let solarizedLight : Theme = {
-            Name = "Solarized Light"
-            Author = "Ethan Schoonover"
-            IsDark = false
-            Base00 = "#fdf6e3"
-            Base01 = "#eee8d5"
-            Base02 = "#93a1a1"
-            Base03 = "#839496"
-            Base04 = "#657b83"
-            Base05 = "#586e75"
-            Base06 = "#073642"
-            Base07 = "#002b36"
-            Base08 = "#dc322f"
-            Base09 = "#cb4b16"
-            Base0A = "#b58900"
-            Base0B = "#859900"
-            Base0C = "#2aa198"
-            Base0D = "#268bd2"
-            Base0E = "#6c71c4"
-            Base0F = "#d33682"
-        }
 
 open Theme
 
 module Widgets =
-    let private sample =
-        """# Markdown Syntax Guide
-
-Markdown is a lightweight markup language for formatting text. Here are some common elements:
-
-## Headings
-
-Use `#` for headings:
-
-```
-# Heading 1
-## Heading 2
-### Heading 3
-```
-
-## Emphasis
-
-- \*Italic\*: `*italic*` or `_italic_`
-- \*\*Bold\*\*: `**bold**` or `__bold__`
-- \~\~Strikethrough\~\~: `~~strikethrough~~`
-
-## Lists
-
-**Unordered list:**
-```
-- Item 1
-- Item 2
-  - Subitem
-```
-
-**Ordered list:**
-```
-1. First
-2. Second
-```
-
-## Links
-
-```
-[Link text](https://example.com)
-```
-
-## Images
-
-```
-![Alt text](https://example.com/image.png)
-```
-
-## Code
-
-Inline code: `` `code` ``
-
-Code block:
-```
-```python
-print("Hello, world!")
-```
-```
-
-## Blockquotes
-
-```
-> This is a quote.
-```
-
-## Horizontal Rule
-
-```
----
-```
-
----
-
-Try writing your own markdown using these elements!
-"""
 
     module Preview =
         open FSharp.Formatting.Markdown
@@ -359,15 +202,22 @@ Try writing your own markdown using these elements!
                     TextBlock.margin (Thickness(8, 0, 0, 8))
                 ]
 
-            let listing (files : string list) : IView list =
-                files |> List.map (fun f -> Button.create [ Button.content f ])
+            let listing (files : string list) (dispatch : Message -> unit) : IView list =
+                files
+                |> List.map (fun f ->
+                    Button.create [
+                        Button.content (Path.GetFileName f : string)
+                        Button.onClick (fun _ -> dispatch (OpenFile f))
+                        Button.horizontalAlignment HorizontalAlignment.Stretch
+                        Button.margin (Thickness(2))
+                    ])
 
-            let render (model : Model) _dispatch =
+            let render (model : Model) dispatch =
                 StackPanel.create [
                     StackPanel.children (
                         match model.Files with
                         | [] -> [ TextBlock.create [ TextBlock.text "No Files" ] ]
-                        | files -> listing files
+                        | files -> listing files dispatch
                     )
                 ]
 
@@ -383,9 +233,9 @@ Try writing your own markdown using these elements!
 
         let private actions dispatch : IView list =
             [|
-                ("File", ToggleMenuButton FileButton)
-                ("Edit", ToggleMenuButton EditButton)
-                ("Help", ToggleMenuButton HelpButton)
+                "File", ToggleMenuButton FileButton
+                "Edit", ToggleMenuButton EditButton
+                "Help", ToggleMenuButton HelpButton
             |]
             |> Array.map (renderButton dispatch)
             |> Array.toList
@@ -397,57 +247,11 @@ Try writing your own markdown using these elements!
                 DockPanel.children (actions dispatch)
             ]
 
-    module Editor =
-        module private LineNumbers =
-            let render col =
-                fun (model : Model) _ ->
-                    TextBlock.create [
-                        Grid.column col
-                        TextBlock.text (model.lineNums |> String.concat "\n")
-                        TextBlock.margin 4.0
-                        TextBlock.verticalAlignment VerticalAlignment.Top
-                    ]
-
-        module EditorBody =
-            let private onChange dispatch =
-                fun contents -> dispatch (TextChanged contents)
-
-            let private onCaret dispatch =
-                fun (args : AvaloniaPropertyChangedEventArgs) ->
-                    args.NewValue :?> int |> fun c -> dispatch (CaretMoved(c))
-
-            let render col =
-                fun (model : Model) dispatch ->
-                    ScrollViewer.create [
-                        Grid.column col
-                        ScrollViewer.content [
-                            TextBox.create [
-                                TextBox.text model.rawContents
-                                TextBox.caretIndex model.caretI
-                                TextBox.acceptsReturn true
-                                TextBox.onTextChanged (onChange dispatch)
-                                TextBox.onPropertyChanged (onCaret dispatch)
-                            ]
-                        ]
-                    ]
-
-        module private StatusBar =
-            let private displayPos state =
-                state.Editor.Position |> fun (ln, col) -> $"Ln %d{ln}, Col %d{col}"
-
-            let render model _ =
-                TextBlock.create [
-                    DockPanel.dock Dock.Bottom
-                    TextBlock.text (displayPos model)
-                    TextBlock.margin 4.0
-                ]
-
-        let render (_model : Model) (_dispatch : Message -> unit) = TextBlock.create []
-
 open Widgets
 
 module Windows =
     module Main =
+
         let render : Renderer =
             fun model dispatch ->
                 DockPanel.create [
@@ -465,6 +269,7 @@ module Windows =
                             Border.background Brushes.LightSteelBlue
                             Border.child (Sidebars.FileBrowser.render model dispatch)
                         ]
-                        Editor.render model dispatch
+
+                        EditorControl.render model dispatch
                     ]
                 ]
