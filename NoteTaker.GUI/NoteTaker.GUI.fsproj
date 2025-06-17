@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
         <OutputType>Exe</OutputType>
@@ -7,10 +7,10 @@
 
     <ItemGroup>
         <Compile Include="Logger.fs" />
-        <Compile Include="Library.fs" />
+        <Compile Include="Editor.fs" />
         <Compile Include="Model.fs" />
         <Compile Include="Views.fs" />
-        <Compile Include="Program.fs"/>
+        <Compile Include="Program.fs" />
     </ItemGroup>
 
     <ItemGroup>
