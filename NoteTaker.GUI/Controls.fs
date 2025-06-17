@@ -2,10 +2,8 @@ namespace NoteTaker.Controls
 
 open NoteTaker
 open TextMateSharp.Grammars
-open TextMateSharp.Registry
 open Avalonia
 open Avalonia.Controls
-open Avalonia.Input
 open Avalonia.Media
 open Avalonia.FuncUI.DSL
 open Avalonia.FuncUI.Types
@@ -14,15 +12,14 @@ open Avalonia.Media.TextFormatting
 open Avalonia.Controls.Primitives
 
 module Syntax =
+    let tRange (token : IToken) (input : string) =
+        let safeStart = max 0 token.StartIndex
+        let safeEnd = min input.Length token.EndIndex
+
+        max 0 (safeEnd - safeStart)
 
     let private getScope (input : string) (token : IToken) : (string * string) =
-        let tRange =
-            let safeStart = max 0 token.StartIndex
-            let safeEnd = min input.Length token.EndIndex
-
-            max 0 (safeEnd - safeStart)
-
-        input |> _.Substring(token.StartIndex, tRange),
+        input |> _.Substring(token.StartIndex, tRange token input),
         token.Scopes |> List.ofSeq |> List.rev |> List.head
 
     let tokenizeLine (model : Model) (inputLn : string) =
@@ -32,19 +29,12 @@ module Syntax =
             | None -> null
 
         if isNull grammar then
-            // Fallback when grammar loading fails
-            [ (inputLn, "text") ]
+            []
         else
-
             let tokens = grammar.TokenizeLine(inputLn).Tokens |> Seq.toList
-
-            if tokens.IsEmpty then
-                []
-            else
-                tokens |> List.map (getScope inputLn)
+            if tokens.IsEmpty then [] else tokens
 
     let renderScope model (text, scope) : IView =
-
 
         Run.create [
             Run.text text
@@ -158,7 +148,10 @@ module EditorControl =
                 TextBlock.fontSize model.Editor.FontSize
                 Canvas.top (float i * model.Editor.LineHeight)
                 Canvas.left 4.0
-                TextBlock.foreground Brushes.Gray
+                TextBlock.foreground model.AppTheme.Base03
+                TextBlock.fontWeight FontWeight.Bold
+                TextBlock.background Brushes.Transparent
+                TextBlock.textAlignment TextAlignment.Right
                 TextBlock.fontFamily "Consolas, Courier New, monospace"
             ]
 
@@ -178,14 +171,12 @@ module EditorControl =
         |> List.map renderBlock
         |> fun blocks ->
             Canvas.create [
-                Canvas.width 60.0
                 Canvas.height totalHeight
                 Canvas.clipToBounds true
                 Canvas.children blocks
-                Canvas.background Brushes.LightGray
             ]
 
-    let private contentLine model dispatch : IView =
+    let private contentLines model dispatch : IView =
         /// Renders a single content line with syntax highlighting
         let renderContentLine lineIndex =
             // Get the line text safely
@@ -201,21 +192,46 @@ module EditorControl =
             // Tokenize the line for syntax highlighting
             let tokens = Syntax.tokenizeLine model lineText
 
-            // Create runs for each token with appropriate styling
-            let runs = tokens |> List.map (Syntax.renderScope model)
+            let runs : IView list =
+                if tokens.IsEmpty then
+                    [ Run.create [ Run.text lineText ] ]
+                else
+                    tokens
+                    |> List.map (fun (token : IToken) ->
+                        let scopes = token.Scopes |> List.ofSeq
+
+                        // Find the most specific scope - try from last to first (most to least specific)
+                        let color =
+                            scopes
+                            |> List.rev // Reverse to go from most specific to least specific
+                            |> List.tryPick (fun scope ->
+                                model.Editor.ScopeColorMap |> Map.tryFind scope)
+                            |> Option.defaultValue Colors.White
+
+                        Run.create [
+                            Run.text (
+                                lineText
+                                |> _.Substring(token.StartIndex, Syntax.tRange token lineText)
+                            )
+                            Run.foreground color
+                        ])
 
             // Create the text block with syntax-highlighted content
             TextBlock.create [
                 TextBlock.inlines runs
                 TextBlock.fontSize model.Editor.FontSize
-                TextBlock.fontFamily "Consolas, Courier New, monospace"
+                TextBlock.fontFamily "JetBrains Mono, Consolas, Courier New, monospace"
                 TextBlock.lineHeight model.Editor.LineHeight
                 Canvas.top yPosition
                 Canvas.left 4.0
                 TextBlock.foreground Brushes.Black
                 TextBlock.background Brushes.Transparent
                 TextBlock.isHitTestVisible true
-                TextBlock.textWrapping TextWrapping.NoWrap
+                TextBlock.textWrapping (
+                    match model.Editor.ShouldWrap with
+                    | true -> TextWrapping.Wrap
+                    | false -> TextWrapping.NoWrap
+                )
             ]
 
         // Render all lines (not just visible ones - let ScrollViewer handle virtualization)
@@ -237,10 +253,9 @@ module EditorControl =
         // Create the canvas container for all content lines
         Canvas.create [
             Canvas.clipToBounds true
-            Canvas.width 800.0 // Set a reasonable width
             Canvas.height totalHeight // Set the total height for proper scrolling
             Canvas.children (contentBlocks |> List.map (fun x -> x :> IView))
-            Canvas.background Brushes.White
+            Canvas.background model.AppTheme.Base00
             Canvas.isHitTestVisible true
             Canvas.onPointerPressed (fun args -> dispatch (OnPointerPressed args))
             Canvas.onKeyDown (fun args -> dispatch (OnKeyDown args))
@@ -256,7 +271,7 @@ module EditorControl =
                     Canvas.onKeyDown (fun args -> dispatch (OnKeyDown args))
                     Canvas.onTextInput (fun args -> dispatch (OnTextInput args))
                     Canvas.onPointerPressed (fun args -> dispatch (OnPointerPressed args))
-                    Canvas.children [ contentLine model dispatch ]
+                    Canvas.children [ contentLines model dispatch ]
                 ]
             )
             ScrollViewer.onScrollChanged (fun args -> dispatch (ScrollBy args.OffsetDelta.Y))
@@ -295,15 +310,21 @@ module EditorControl =
                     DockPanel.create [
                         DockPanel.lastChildFill true
                         DockPanel.children [
-                            // Line numbers on the left
                             Border.create [
                                 Border.dock Dock.Left
-                                Border.width 60.0
-                                Border.background Brushes.LightGray
+                                Border.maxWidth 50.0
+                                Border.width 25.0
+                                Border.background model.AppTheme.Base01
                                 Border.child (lineNumbers model dispatch)
                             ]
                             // Content on the right
-                            contentLine model dispatch
+                            // With some padding on the right side
+                            Border.create [
+                                Border.borderThickness 0
+                                Border.padding (Thickness(0, 0, 8, 0))
+                                Border.background Colors.Transparent
+                                Border.child (contentLines model dispatch)
+                            ]
                         ]
                     ]
                 )

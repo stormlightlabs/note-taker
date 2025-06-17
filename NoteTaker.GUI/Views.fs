@@ -192,7 +192,10 @@ module Widgets =
                 Section.List |> List.map (renderItem model dispatch)
 
             let render model dispatch =
-                StackPanel.create [ StackPanel.children (items model dispatch) ]
+                StackPanel.create [
+                    StackPanel.background model.AppTheme.Base00
+                    StackPanel.children (items model dispatch)
+                ]
 
         module FileBrowser =
             let private header =
@@ -214,10 +217,11 @@ module Widgets =
 
             let render (model : Model) dispatch =
                 StackPanel.create [
+                    StackPanel.background model.AppTheme.Base01
                     StackPanel.children (
                         match model.Files with
-                        | [] -> [ TextBlock.create [ TextBlock.text "No Files" ] ]
-                        | files -> listing files dispatch
+                        | [] -> header :: [ TextBlock.create [ TextBlock.text "No Files" ] ]
+                        | files -> header :: listing files dispatch
                     )
                 ]
 

@@ -16,7 +16,8 @@ module Data =
         let sample =
             """# Markdown Syntax Guide
 
-Markdown is a lightweight markup language for formatting text. Here are some common elements:
+Markdown is a lightweight markup language for formatting text.
+Here are some common elements:
 
 ## Headings
 
@@ -31,14 +32,7 @@ Use `#` for headings:
 ## Emphasis
 
 - \*Italic\*: `*italic*` or `_italic_`
-- \*\*Bold\*\*: `**bold**` or `__bold__`        let grammarPath =
-            Path.Combine(
-                AppDomain.CurrentDomain.BaseDirectory,
-                "Assets",
-                "markdown.tmLanguage.json"
-            )
-
-        Cmd.ofMsg (LoadGrammar grammarPath)trikethrough\~\~: `~~strikethrough~~`
+- \*\*Bold\*\*: `**bold**` or `__bold__`
 
 ## Lists
 
@@ -194,59 +188,168 @@ module Theme =
 
     let mapping theme =
         [
-            "punctuation.definition.heading.markdown", theme.Base04
+            // Document structure
+            "text.html.markdown", theme.Base05
+            "meta.frontmatter.markdown", theme.Base0F
+            "meta.embedded.block.frontmatter", theme.Base0F
+
+            // Headings
             "markup.heading.markdown", theme.Base0D
             "markup.heading.setext.1.markdown", theme.Base0D
             "markup.heading.setext.2.markdown", theme.Base0D
+            "punctuation.definition.heading.markdown", theme.Base04
+            "entity.name.section.markdown", theme.Base0D
+
+            // Emphasis and formatting
             "markup.bold.markdown", theme.Base0B
             "markup.italic.markdown", theme.Base0E
             "markup.bold.italic.markdown", theme.Base0B
-            "punctuation.definition.blockquote.markdown", theme.Base03
+            "punctuation.definition.bold.markdown", theme.Base04
+            "punctuation.definition.italic.markdown", theme.Base04
+            "punctuation.definition.emphasis.markdown", theme.Base04
+
+            // Quotes
             "markup.quote.markdown", theme.Base0C
-            "punctuation.definition.list.begin.markdown", theme.Base03
+            "punctuation.definition.quote.markdown", theme.Base03
+            "beginning.punctuation.definition.quote.markdown", theme.Base03
+
+            // Lists
             "markup.list.unnumbered.markdown", theme.Base0A
             "markup.list.numbered.markdown", theme.Base0A
-            "punctuation.definition.list.number.markdown", theme.Base03
+            "beginning.punctuation.definition.list.markdown", theme.Base03
+            "punctuation.definition.list.begin.markdown", theme.Base03
+
+            // Links
             "markup.underline.link.markdown", theme.Base09
-            "markup.link.inline.markdown", theme.Base09
-            "markup.link.reference.markdown", theme.Base09
+            "markup.underline.link.image.markdown", theme.Base08
+            "meta.link.inline.markdown", theme.Base09
+            "meta.link.reference.markdown", theme.Base09
+            "meta.link.reference.def.markdown", theme.Base09
+            "meta.link.reference.literal.markdown", theme.Base09
+            "meta.link.email.lt-gt.markdown", theme.Base09
+            "meta.link.inet.markdown", theme.Base09
             "string.other.link.title.markdown", theme.Base0B
             "string.other.link.description.markdown", theme.Base0B
-            "punctuation.definition.string.begin.markdown", theme.Base04
-            "punctuation.definition.string.end.markdown", theme.Base04
+            "string.other.link.description.title.markdown", theme.Base0B
+            "punctuation.definition.link.markdown", theme.Base04
             "punctuation.definition.link.begin.markdown", theme.Base04
             "punctuation.definition.link.end.markdown", theme.Base04
+            "punctuation.separator.key-value.markdown", theme.Base04
+            "constant.other.reference.link.markdown", theme.Base08
+            "punctuation.definition.constant.markdown", theme.Base04
+            "punctuation.definition.constant.begin.markdown", theme.Base04
+            "punctuation.definition.constant.end.markdown", theme.Base04
+
+            // Images
+            "meta.image.inline.markdown", theme.Base08
+            "meta.image.reference.markdown", theme.Base08
             "markup.image.markdown", theme.Base08
             "string.other.image.title.markdown", theme.Base08
 
-            // Inline code
+            // Code - Inline
+            "markup.inline.raw.string.markdown", theme.Base0B
             "markup.inline.raw.markdown", theme.Base0B
+            "punctuation.definition.raw.markdown", theme.Base04
             "punctuation.definition.raw.begin.markdown", theme.Base04
             "punctuation.definition.raw.end.markdown", theme.Base04
 
-            "markup.fenced_code.markdown", theme.Base0B
+            // Code - Fenced blocks
+            "markup.fenced_code.block.markdown", theme.Base0B
+            "punctuation.definition.markdown", theme.Base03
+            "fenced_code.block.language", theme.Base0E
+            "fenced_code.block.language.attributes", theme.Base0E
             "fenced_code.block.marker.backtick.markdown", theme.Base03
-            "fenced_code.block.language.markdown", theme.Base0E
 
-            // Horizontal rules
+            // Embedded code blocks (various languages)
+            "meta.embedded.block.css", theme.Base0B
+            "meta.embedded.block.html", theme.Base0B
+            "meta.embedded.block.ini", theme.Base0B
+            "meta.embedded.block.java", theme.Base0B
+            "meta.embedded.block.lua", theme.Base0B
+            "meta.embedded.block.makefile", theme.Base0B
+            "meta.embedded.block.perl", theme.Base0B
+            "meta.embedded.block.r", theme.Base0B
+            "meta.embedded.block.ruby", theme.Base0B
+            "meta.embedded.block.php", theme.Base0B
+            "meta.embedded.block.sql", theme.Base0B
+            "meta.embedded.block.vs_net", theme.Base0B
+            "meta.embedded.block.xml", theme.Base0B
+            "meta.embedded.block.xsl", theme.Base0B
+            "meta.embedded.block.yaml", theme.Base0B
+            "meta.embedded.block.dosbatch", theme.Base0B
+            "meta.embedded.block.clojure", theme.Base0B
+            "meta.embedded.block.coffee", theme.Base0B
+            "meta.embedded.block.c", theme.Base0B
+            "meta.embedded.block.cpp", theme.Base0B
+            "meta.embedded.block.diff", theme.Base0B
+            "meta.embedded.block.dockerfile", theme.Base0B
+            "meta.embedded.block.git_commit", theme.Base0B
+            "meta.embedded.block.git_rebase", theme.Base0B
+            "meta.embedded.block.go", theme.Base0B
+            "meta.embedded.block.groovy", theme.Base0B
+            "meta.embedded.block.jade", theme.Base0B
+            "meta.embedded.block.javascript", theme.Base0B
+            "meta.embedded.block.js_regexp", theme.Base0B
+            "meta.embedded.block.json", theme.Base0B
+            "meta.embedded.block.less", theme.Base0B
+            "meta.embedded.block.objc", theme.Base0B
+            "meta.embedded.block.scss", theme.Base0B
+            "meta.embedded.block.perl6", theme.Base0B
+            "meta.embedded.block.powershell", theme.Base0B
+            "meta.embedded.block.python", theme.Base0B
+            "meta.embedded.block.regexp_python", theme.Base0B
+            "meta.embedded.block.rust", theme.Base0B
+            "meta.embedded.block.scala", theme.Base0B
+            "meta.embedded.block.shellscript", theme.Base0B
+            "meta.embedded.block.typescript", theme.Base0B
+            "meta.embedded.block.typescriptreact", theme.Base0B
+            "meta.embedded.block.csharp", theme.Base0B
+            "meta.embedded.block.fsharp", theme.Base0B
+
+            // Raw blocks
+            "markup.raw.block.markdown", theme.Base0B
+
+            // Separators
             "meta.separator.markdown", theme.Base03
-            "markup.table.markdown", theme.Base0A
-            "punctuation.separator.table.markdown", theme.Base03
-            "markup.footnote.definition.markdown", theme.Base09
-            "markup.footnote.reference.markdown", theme.Base09
 
-            // Emphasis markers
-            "punctuation.definition.emphasis.markdown", theme.Base04
+            // HTML
+            "comment.block.html", theme.Base03
+            "punctuation.definition.comment.html", theme.Base03
 
-            // YAML front matter
-            "meta.block.yaml.markdown", theme.Base0F
-            "punctuation.definition.metadata.markdown", theme.Base0F
-            "meta.separator.metadata.markdown", theme.Base0F
+            // Paragraphs
+            "meta.paragraph.markdown", theme.Base05
 
-            // Math expr
+            // String delimiters
+            "punctuation.definition.string.begin.markdown", theme.Base04
+            "punctuation.definition.string.end.markdown", theme.Base04
+            "punctuation.definition.string.markdown", theme.Base04
+            "punctuation.definition.metadata.markdown", theme.Base04
+
+            // Math (if supported)
             "markup.math.inline.markdown", theme.Base0C
             "punctuation.definition.math.begin.markdown", theme.Base04
             "punctuation.definition.math.end.markdown", theme.Base04
+
+            // Tables
+            "markup.table.markdown", theme.Base0A
+            "punctuation.separator.table.markdown", theme.Base03
+
+            // Footnotes
+            "markup.footnote.definition.markdown", theme.Base09
+            "markup.footnote.reference.markdown", theme.Base09
+
+            // Special characters
+            "meta.other.valid-ampersand.markdown", theme.Base05
+            "meta.other.valid-bracket.markdown", theme.Base05
+            "constant.character.escape.markdown", theme.Base08
+
+            // YAML frontmatter
+            "meta.block.yaml.markdown", theme.Base0F
+            "meta.separator.metadata.markdown", theme.Base0F
+
+            // Default fallbacks
+            "source", theme.Base05
+            "text", theme.Base05
         ]
         |> Map.ofList
 
@@ -418,6 +521,7 @@ module Note =
 type EditorState = {
     Content : string
     Lines : string list
+    ShouldWrap : bool
     CurrentFile : string option // Track the currently open file path
     GrammarRegistry : Registry
     TmScope : string option
@@ -436,6 +540,7 @@ type EditorState = {
     Folds : FoldRange list
     LineHeight : float
     FontSize : float
+    Mode : EditorMode
 } with
 
     static member Default : EditorState = {
@@ -457,7 +562,14 @@ type EditorState = {
         Folds = []
         LineHeight = 16.0
         FontSize = 14.0
+        ShouldWrap = true
+        Mode = Markdown
     }
+
+and EditorMode =
+    | WYSIWYG
+    | PlainText
+    | Markdown
 
 and CaretPosition = {
     Line : int
@@ -520,6 +632,8 @@ type Message =
     | UpdateBracketMatches of Map<int, (int * int)>
     | PerformSearch of string
     | SetSearchReults of (int * int) list
+    | ToggleWrapping
+    | ChangeEditorMode of EditorMode
 
 and MenuButton =
     | FileButton
@@ -533,6 +647,8 @@ type Model = {
     Error : Error option
     Editor : EditorState
     Files : string list
+    AppTheme : Theme
+
 }
 
 module Watcher =
@@ -604,7 +720,11 @@ module Model =
         Cmd.ofMsg (LoadGrammar grammarPath)
 
     let private filesLoaded files state =
-        let updatedState = { state with Files = files }
+        let updatedState = {
+            state with
+                Files =
+                    (files |> List.filter (fun f -> f.EndsWith ".md" || f.EndsWith ".markdown"))
+        }
         // Check if there are any markdown files
         let hasMarkdownFiles =
             files
@@ -635,6 +755,17 @@ module Model =
         match msg with
         | SelectView view -> state |> selectView view |> withCommand None
         | ToggleScheme -> state |> toggleScheme |> withCommand None
+        | ToggleWrapping ->
+            {
+                state with
+                    Editor = {
+                        state.Editor with
+                            ShouldWrap = not state.Editor.ShouldWrap
+                    }
+            }
+            |> withCommand None
+        | ChangeEditorMode mode ->
+            { state with Editor = { state.Editor with Mode = mode } } |> withCommand None
         | FileSystemChanged -> withCommand (Some loadFilesCmd) state
         | LoadFiles -> withCommand (Some loadFilesCmd) state
         | FilesLoaded files ->
@@ -851,6 +982,7 @@ module Model =
                 Error = None
                 Editor = EditorState.Default
                 Files = []
+                AppTheme = Theme.Presets.solarizedDark
             }
 
             // Combine initialization commands:
@@ -868,6 +1000,7 @@ module Model =
                 CurrentView = Capture
                 Error = Some err
                 Editor = EditorState.Default
+                AppTheme = Theme.Presets.solarizedDark
                 Files = []
             }
 

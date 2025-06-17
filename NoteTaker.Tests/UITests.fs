@@ -13,6 +13,7 @@ module ModelTests =
                 CurrentView = Capture
                 Error = None
                 Editor = EditorState.Default
+                AppTheme = Theme.Presets.solarizedDark
                 Files = []
             }
 
@@ -31,6 +32,7 @@ module ModelTests =
                 CurrentView = Capture
                 Error = None
                 Editor = EditorState.Default
+                AppTheme = Theme.Presets.solarizedDark
                 Files = []
             }
 
