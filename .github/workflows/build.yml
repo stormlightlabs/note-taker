@@ -1,0 +1,109 @@
+name: Build and Release
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            runtime: linux-x64
+            artifact-name: linux-x64
+          - os: windows-latest
+            runtime: win-x64
+            artifact-name: windows-x64
+          - os: macos-latest
+            runtime: osx-x64
+            artifact-name: macos-x64
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '9.0.x'
+
+    - name: Restore dependencies
+      run: dotnet restore NoteTaker.GUI/NoteTaker.GUI.fsproj
+
+    - name: Build
+      run: dotnet build NoteTaker.GUI/NoteTaker.GUI.fsproj --no-restore -c Release
+
+    - name: Test
+      run: dotnet test NoteTaker.Tests/NoteTaker.Tests.fsproj --no-build -c Release --verbosity normal
+
+    - name: Publish
+      run: |
+        dotnet publish NoteTaker.GUI/NoteTaker.GUI.fsproj \
+          -c Release \
+          -r ${{ matrix.runtime }} \
+          --self-contained true \
+          -p:PublishSingleFile=true \
+          -p:IncludeNativeLibrariesForSelfExtract=true \
+          -o dist/${{ matrix.runtime }}
+
+    - name: Create macOS App Bundle (macOS only)
+      if: matrix.os == 'macos-latest'
+      run: |
+        APP_NAME="Stormlight Note Taker"
+        APP_DIR="dist/${{ matrix.runtime }}/$APP_NAME.app"
+
+        mkdir -p "$APP_DIR/Contents/MacOS"
+        mkdir -p "$APP_DIR/Contents/Resources"
+
+        cp "dist/${{ matrix.runtime }}/NoteTaker.GUI" "$APP_DIR/Contents/MacOS/"
+        cp "NoteTaker.GUI/Icons/App/osx.icns" "$APP_DIR/Contents/Resources/"
+        cp "NoteTaker.GUI/Info.plist" "$APP_DIR/Contents/"
+
+        chmod +x "$APP_DIR/Contents/MacOS/NoteTaker.GUI"
+
+    - name: Create Archive (Unix)
+      if: matrix.os != 'windows-latest'
+      run: |
+        cd dist/${{ matrix.runtime }}
+        if [ "${{ matrix.os }}" = "macos-latest" ]; then
+          tar -czf ../../NoteTaker-${{ matrix.artifact-name }}.tar.gz "Stormlight Note Taker.app"
+        else
+          tar -czf ../../NoteTaker-${{ matrix.artifact-name }}.tar.gz *
+        fi
+
+    - name: Create Archive (Windows)
+      if: matrix.os == 'windows-latest'
+      run: |
+        cd dist/${{ matrix.runtime }}
+        7z a ../../NoteTaker-${{ matrix.artifact-name }}.zip *
+
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: NoteTaker-${{ matrix.artifact-name }}
+        path: |
+          NoteTaker-${{ matrix.artifact-name }}.tar.gz
+          NoteTaker-${{ matrix.artifact-name }}.zip
+        if-no-files-found: ignore
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Download Artifacts
+      uses: actions/download-artifact@v4
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          */NoteTaker-*.tar.gz
+          */NoteTaker-*.zip
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

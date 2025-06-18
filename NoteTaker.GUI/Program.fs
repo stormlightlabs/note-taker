@@ -1,8 +1,4 @@
-﻿(*
-    TODO: When should a file contain a namespace?
-    TODO: Markdown syntax highlighting
-*)
-module NoteTaker.GUI
+﻿module NoteTaker.GUI
 
 open Elmish
 open Avalonia
@@ -11,12 +7,12 @@ open Avalonia.Themes.Fluent
 open Avalonia.FuncUI.Hosts
 open Avalonia.FuncUI.Elmish
 
-open NoteTaker
+open NoteTaker.Model
 open NoteTaker.Views
 
-/// View layer entry point
-let view (model : Model) (dispatch : Message -> unit) =
-    Windows.Main.render model dispatch
+module Handlers =
+    /// View layer entry point
+    let view (model : Model) (dispatch : Message -> unit) = Windows.Main.render model dispatch
 
 module Program =
     type MainWindow() as this =
@@ -27,9 +23,13 @@ module Program =
             base.Width <- 800.0
             base.Height <- 600.0
 
-            Program.mkProgram Model.init Model.update view
+            Program.mkProgram Handlers.init Handlers.update Handlers.view
             |> Program.withConsoleTrace
             |> Program.withHost this
+            |> Program.withSubscription (fun _ -> [
+                [ "sub:fileWatcher" ],
+                fun dispatch -> Watcher.setup dispatch :> System.IDisposable
+            ])
             |> Program.run
 
     type App() =

@@ -3,7 +3,7 @@ namespace NoteTaker.Tests
 
 open System.IO
 open Expecto
-open NoteTaker
+open NoteTaker.Model
 
 module Tests =
     /// Helper: create a unique throw-away directory under %TMP%
@@ -13,21 +13,18 @@ module Tests =
             Directory.CreateDirectory dir |> ignore
             dir
 
+    [<Tests>]
     let workspaceSetupTests =
         testList "Workspace.ensure" [
             testCase "creates all canonical sub-folders"
             <| fun _ ->
                 let tempRoot = getAndCreateTempDir ()
-                let created = GUI.ensureDirs tempRoot
+                let created = Handlers.ensureDirs tempRoot
 
                 let expected =
-                    GUI.Views.List
-                    |> List.map (fun v -> Path.Combine(tempRoot, v.dirName))
+                    Section.List |> List.map (fun v -> Path.Combine(tempRoot, v.dirName))
 
-                Expect.sequenceEqual
-                    created
-                    expected
-                    "scaffolding paths should match spec"
+                Expect.sequenceEqual created expected "scaffolding paths should match spec"
 
                 expected
                 |> List.iter (fun p ->
@@ -50,8 +47,7 @@ module Tests =
                 let store = Store.FileSystem.make tempRoot // no config.json yet
 
                 match store.Load() with
-                | Ok cfg ->
-                    Expect.equal cfg Config.Default "Should fall back to default config"
+                | Ok cfg -> Expect.equal cfg Config.Default "Should fall back to default config"
                 | Error _ -> ()
 
                 Directory.Delete(tempRoot, true)
@@ -66,10 +62,7 @@ module Tests =
                 | Ok _ ->
                     match store.Load() with
                     | Ok loaded ->
-                        Expect.equal
-                            loaded
-                            expected
-                            $"Config should round-trip exactly at "
+                        Expect.equal loaded expected $"Config should round-trip exactly at "
 
                         Directory.Delete(tempRoot, true)
                     | Error err -> failtest $"failed to load config because {err.str}"
@@ -92,10 +85,7 @@ module Tests =
                 | Ok _ ->
                     match store.Load() with
                     | Ok loaded ->
-                        Expect.equal
-                            loaded
-                            updated
-                            "Memory store must reflect last save"
+                        Expect.equal loaded updated "Memory store must reflect last save"
                     | Error err -> failtest $"failed to load config because {err.str}"
                 | Error err -> failtest $"failed to update config because {err.str}"
         ]
@@ -111,4 +101,5 @@ module Tests =
                 workspaceSetupTests
                 fileSystemStoreTests
                 memoryStoreTests
+                ModelTests.readmeCreationTests
             ])
