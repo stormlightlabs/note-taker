@@ -1,6 +1,6 @@
 namespace NoteTaker.Controls
 
-open NoteTaker
+open NoteTaker.Model
 open TextMateSharp.Grammars
 open Avalonia
 open Avalonia.Controls

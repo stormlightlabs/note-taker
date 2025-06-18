@@ -5,8 +5,13 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Logger.fs" />
-    
-    <Compile Include="Model.fs" />
+    <Compile Include="Model/Error.fs" />
+    <Compile Include="Model/Data.fs" />
+    <Compile Include="Model/Theme.fs" />
+    <Compile Include="Model/Scheme.fs" />
+    <Compile Include="Model/Config.fs" />
+    <Compile Include="Model/Store.fs" />
+    <Compile Include="Model/Model.fs" /><Compile Include="Model/Watcher.fs" /><Compile Include="Model/Update.fs" />
     <Compile Include="Controls.fs" />
     <Compile Include="Views.fs" />
     <Compile Include="Program.fs" />

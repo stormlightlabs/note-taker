@@ -3,7 +3,7 @@ namespace NoteTaker.Tests
 
 open System.IO
 open Expecto
-open NoteTaker
+open NoteTaker.Model
 
 module Tests =
     /// Helper: create a unique throw-away directory under %TMP%
@@ -19,7 +19,7 @@ module Tests =
             testCase "creates all canonical sub-folders"
             <| fun _ ->
                 let tempRoot = getAndCreateTempDir ()
-                let created = Model.ensureDirs tempRoot
+                let created = Handlers.ensureDirs tempRoot
 
                 let expected =
                     Section.List |> List.map (fun v -> Path.Combine(tempRoot, v.dirName))

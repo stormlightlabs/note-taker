@@ -1,7 +1,4 @@
-﻿(*
-    TODO: Markdown syntax highlighting
-*)
-module NoteTaker.GUI
+﻿module NoteTaker.GUI
 
 open Elmish
 open Avalonia
@@ -9,13 +6,13 @@ open Avalonia.Controls.ApplicationLifetimes
 open Avalonia.Themes.Fluent
 open Avalonia.FuncUI.Hosts
 open Avalonia.FuncUI.Elmish
-open Avalonia.FuncUI.AvaloniaExtensions
 
-open NoteTaker
+open NoteTaker.Model
 open NoteTaker.Views
 
-/// View layer entry point
-let view (model : Model) (dispatch : Message -> unit) = Windows.Main.render model dispatch
+module Handlers =
+    /// View layer entry point
+    let view (model : Model) (dispatch : Message -> unit) = Windows.Main.render model dispatch
 
 module Program =
     type MainWindow() as this =
@@ -26,7 +23,7 @@ module Program =
             base.Width <- 800.0
             base.Height <- 600.0
 
-            Program.mkProgram Model.init Model.update view
+            Program.mkProgram Handlers.init Handlers.update Handlers.view
             |> Program.withConsoleTrace
             |> Program.withHost this
             |> Program.withSubscription (fun _ -> [

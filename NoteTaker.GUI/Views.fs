@@ -8,9 +8,10 @@ open Avalonia.FuncUI.DSL
 open Avalonia.FuncUI.Types
 open Avalonia.Media
 open Avalonia.Layout
-open NoteTaker
-open NoteTaker.Controls
 open FSharp.Formatting.Markdown
+
+open NoteTaker.Model
+open NoteTaker.Controls
 
 module Widgets =
     module Preview =
@@ -39,7 +40,7 @@ module Widgets =
                     | HardLineBreak _ -> acc + "\n"
                     | LatexInlineMath(code, _) -> acc + code
                     | LatexDisplayMath(code, _) -> acc + code
-                    | EmbedSpans(_, _) -> acc + "[Embedded]")
+                    | EmbedSpans _ -> acc + "[Embedded]")
                 ""
 
         let rec private renderSpans (spans : MarkdownSpans) : IView list =
@@ -163,7 +164,7 @@ module Widgets =
                         )
                     ]
                   ]
-                | EmbedSpans(_, _) -> [
+                | EmbedSpans _ -> [
                     TextBlock.create [
                         TextBlock.text "[Embedded Content]"
                         TextBlock.foreground Brushes.Gray
@@ -240,14 +241,14 @@ module Widgets =
                     Border.margin (0.0, 16.0)
                 ]
               ]
-            | TableBlock(_, _, _, _) -> [
+            | TableBlock _ -> [
                 TextBlock.create [
                     TextBlock.text "[Table - not yet supported]"
                     TextBlock.foreground Brushes.Gray
                     TextBlock.fontStyle FontStyle.Italic
                 ]
               ]
-            | _ -> [] // unhandled paragraph kinds
+            | _ -> []
 
         let render (markdown : string) : IView =
             Markdown.Parse markdown
@@ -487,8 +488,9 @@ module Windows =
                             Border.background (SolidColorBrush(model.AppTheme.Base01))
                             Border.child (Sidebars.FileBrowser.render model dispatch)
                         ]
+
                         match model.Editor.Mode with
-                        | Preview -> EditorControl.render model dispatch
-                        | Markdown -> Preview.render model.Editor.Content
+                        | Preview -> Preview.render model.Editor.Content
+                        | _ -> EditorControl.render model dispatch
                     ]
                 ]

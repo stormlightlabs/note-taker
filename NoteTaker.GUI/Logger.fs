@@ -1,12 +1,11 @@
-namespace NoteTaker
+namespace NoteTaker.Logger
 
 open Serilog
 
 module Logger =
     open Microsoft.Extensions.Logging
 
-    Log.Logger <-
-        LoggerConfiguration().MinimumLevel.Debug().WriteTo.Console().CreateLogger()
+    Log.Logger <- LoggerConfiguration().MinimumLevel.Debug().WriteTo.Console().CreateLogger()
 
     let private factory =
         LoggerFactory.Create(fun bridge -> bridge.AddSerilog() |> ignore)

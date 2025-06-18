@@ -1,26 +1,29 @@
 namespace NoteTaker.Tests
 
 open Expecto
-open NoteTaker
+open NoteTaker.Model
 
 module ModelTests =
 
     let private testFilesLoadedWithoutMarkdown =
         testCase "FilesLoaded without markdown files should update files"
         <| fun _ ->
-            let initialState = {
+            let initialState : Model = {
                 Config = Config.Default
                 CurrentView = Capture
                 Error = None
                 Editor = EditorState.Default
                 AppTheme = Theme.Presets.solarizedDark
                 Files = []
+                IsDirty = false
+                ActiveMenu = None
+                CurrentFolder = None
             }
 
             let nonMarkdownFiles = [ "config.json"; "app.exe"; "data.txt" ]
             let message = FilesLoaded nonMarkdownFiles
 
-            let newState, _cmd = Model.update message initialState
+            let newState, _cmd = Handlers.update message initialState
 
             Expect.equal newState.Files nonMarkdownFiles "Files should be updated"
 
@@ -33,13 +36,16 @@ module ModelTests =
                 Error = None
                 Editor = EditorState.Default
                 AppTheme = Theme.Presets.solarizedDark
+                IsDirty = false
+                ActiveMenu = None
                 Files = []
+                CurrentFolder = None
             }
 
             let filesWithMarkdown = [ "config.json"; "existing.md"; "data.txt" ]
             let message = FilesLoaded filesWithMarkdown
 
-            let newState, _cmd = Model.update message initialState
+            let newState, _cmd = Handlers.update message initialState
 
             Expect.equal newState.Files filesWithMarkdown "Files should be updated"
 
