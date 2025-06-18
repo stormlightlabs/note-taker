@@ -3,22 +3,18 @@ namespace NoteTaker.Views
 open System.IO
 open Avalonia
 open Avalonia.Controls
+open Avalonia.FuncUI
 open Avalonia.FuncUI.DSL
 open Avalonia.FuncUI.Types
 open Avalonia.Media
 open Avalonia.Layout
 open NoteTaker
 open NoteTaker.Controls
-
-
-open Theme
+open FSharp.Formatting.Markdown
 
 module Widgets =
-
     module Preview =
-        open FSharp.Formatting.Markdown
-
-        let inline textBlock text fontSize =
+        let private textBlock text fontSize =
             TextBlock.create [
                 TextBlock.text text
                 TextBlock.fontSize fontSize
@@ -26,7 +22,27 @@ module Widgets =
                 TextBlock.margin (0.0, 4.0)
             ]
 
-        let rec renderSpans (spans : MarkdownSpans) : IView list =
+        let rec private writeSpansPlain (spans : MarkdownSpans) : string =
+            spans
+            |> Seq.fold
+                (fun acc span ->
+                    match span with
+                    | Literal(text, _) -> acc + text
+                    | Strong(body, _) -> acc + writeSpansPlain body
+                    | Emphasis(body, _) -> acc + writeSpansPlain body
+                    | InlineCode(code, _) -> acc + code
+                    | DirectLink(body, _, _, _) -> acc + writeSpansPlain body
+                    | IndirectLink(body, _, _, _) -> acc + writeSpansPlain body
+                    | DirectImage(altText, _, _, _) -> acc + altText
+                    | IndirectImage(altText, _, _, _) -> acc + altText
+                    | AnchorLink(link, _) -> acc + link
+                    | HardLineBreak _ -> acc + "\n"
+                    | LatexInlineMath(code, _) -> acc + code
+                    | LatexDisplayMath(code, _) -> acc + code
+                    | EmbedSpans(_, _) -> acc + "[Embedded]")
+                ""
+
+        let rec private renderSpans (spans : MarkdownSpans) : IView list =
             spans
             |> Seq.toList
             |> List.collect (fun span ->
@@ -39,7 +55,21 @@ module Widgets =
                         StackPanel.fontWeight FontWeight.Bold
                     ]
                   ]
-                | InlineCode(_code, _range) -> failwith "todo"
+                | InlineCode(code, _) -> [
+                    Border.create [
+                        Border.background (SolidColorBrush(Color.Parse "#f5f5f5"))
+                        Border.cornerRadius 3.0
+                        Border.padding (2.0, 1.0)
+                        Border.child (
+                            TextBlock.create [
+                                TextBlock.text code
+                                TextBlock.fontFamily "Consolas, Menlo, Monaco, monospace"
+                                TextBlock.fontSize 13.0
+                                TextBlock.foreground (SolidColorBrush(Color.Parse "#333"))
+                            ]
+                        )
+                    ]
+                  ]
                 | Emphasis(body, _) -> [
                     StackPanel.create [
                         StackPanel.orientation Orientation.Horizontal
@@ -47,233 +77,418 @@ module Widgets =
                         StackPanel.fontStyle FontStyle.Italic
                     ]
                   ]
-                | AnchorLink(_link, _range) -> failwith "todo"
-                | DirectLink(_body, _link, _title, _range) -> [
+                | AnchorLink(link, _) -> [
                     TextBlock.create [
-                        TextBlock.text ""
+                        TextBlock.text link
                         TextBlock.foreground Brushes.DodgerBlue
                         TextBlock.cursor Avalonia.Input.Cursor.Default
+                        TextBlock.textDecorations TextDecorations.Underline
                     ]
                   ]
-                | IndirectLink(_body, _original, _key, _range) -> failwith "todo"
-                | DirectImage(_body, _link, _title, _range) -> failwith "todo"
-                | IndirectImage(_body, _link, _key, _range) -> failwith "todo"
-                | HardLineBreak _range -> failwith "todo"
-                | LatexInlineMath(_code, _range) -> failwith "todo"
-                | LatexDisplayMath(_code, _range) -> failwith "todo"
-                | EmbedSpans(_customSpans, _range) -> failwith "todo")
+                | DirectLink(body, link, _, _) -> [
+                    TextBlock.create [
+                        TextBlock.text (writeSpansPlain body)
+                        TextBlock.foreground Brushes.DodgerBlue
+                        TextBlock.cursor Avalonia.Input.Cursor.Default
+                        TextBlock.textDecorations TextDecorations.Underline
+                        ToolTip.tip link
+                    ]
+                  ]
+                | IndirectLink(body, _, _, _) -> [
+                    TextBlock.create [
+                        TextBlock.text (writeSpansPlain body)
+                        TextBlock.foreground Brushes.DodgerBlue
+                        TextBlock.cursor Avalonia.Input.Cursor.Default
+                        TextBlock.textDecorations TextDecorations.Underline
+                    ]
+                  ]
+                | DirectImage(body, link, title, _) -> [
+                    StackPanel.create [
+                        StackPanel.orientation Orientation.Vertical
+                        StackPanel.children [
+                            TextBlock.create [
+                                TextBlock.text $"[Image: {body}]"
+                                TextBlock.foreground Brushes.Gray
+                                TextBlock.fontStyle FontStyle.Italic
+                                ToolTip.tip $"Image URL: {link}"
+                            ]
+                            match title with
+                            | Some t ->
+                                TextBlock.create [
+                                    TextBlock.text t
+                                    TextBlock.fontSize 12.0
+                                    TextBlock.foreground Brushes.Gray
+                                ]
+                            | None -> ()
+                        ]
+                    ]
+                  ]
+                | IndirectImage(body, _, _, _) -> [
+                    TextBlock.create [
+                        TextBlock.text $"[Image: {body}]"
+                        TextBlock.foreground Brushes.Gray
+                        TextBlock.fontStyle FontStyle.Italic
+                    ]
+                  ]
+                | HardLineBreak _ -> [ TextBlock.create [ TextBlock.text "\n" ] ]
+                | LatexInlineMath(code, _) -> [
+                    Border.create [
+                        Border.background (SolidColorBrush(Color.Parse "#fff8dc"))
+                        Border.cornerRadius 3.0
+                        Border.padding (2.0, 1.0)
+                        Border.child (
+                            TextBlock.create [
+                                TextBlock.text $"${code}$"
+                                TextBlock.fontFamily "Consolas, Menlo, Monaco, monospace"
+                                TextBlock.fontSize 13.0
+                                TextBlock.foreground (SolidColorBrush(Color.Parse "#8b4513"))
+                            ]
+                        )
+                    ]
+                  ]
+                | LatexDisplayMath(code, _) -> [
+                    Border.create [
+                        Border.background (SolidColorBrush(Color.Parse "#fff8dc"))
+                        Border.cornerRadius 3.0
+                        Border.padding (8.0, 4.0)
+                        Border.margin (0.0, 8.0)
+                        Border.child (
+                            TextBlock.create [
+                                TextBlock.text $"$${code}$$"
+                                TextBlock.fontFamily "Consolas, Menlo, Monaco, monospace"
+                                TextBlock.fontSize 14.0
+                                TextBlock.foreground (SolidColorBrush(Color.Parse "#8b4513"))
+                                TextBlock.textAlignment TextAlignment.Center
+                            ]
+                        )
+                    ]
+                  ]
+                | EmbedSpans(_, _) -> [
+                    TextBlock.create [
+                        TextBlock.text "[Embedded Content]"
+                        TextBlock.foreground Brushes.Gray
+                        TextBlock.fontStyle FontStyle.Italic
+                    ]
+                  ])
 
-        // | DirectLink(body = b; link = url) -> [
-        //     TextBlock.create [
-        //         TextBlock.text (
-        //             String.concat
-        //                 ""
-        //                 (renderSpans b |> List.choose (fun x -> x.TryGetText()))
-        //         )
-        //         TextBlock.foreground Brushes.CornflowerBlue
-        //         TextBlock.cursor Input.Cursors.Hand
-        //         TextBlock.onTapped (fun _ _ -> BrowserUtil.openUrl url)
-        //     ]
-        //   ]
-        // | _ -> []) // ignore other inline cases for now
+        let rec private renderParagraph (par : MarkdownParagraph) : IView list =
+            match par with
+            | Heading(size = 1; body = spans) -> [ textBlock (writeSpansPlain spans) 26.0 ]
+            | Heading(size = 2; body = spans) -> [ textBlock (writeSpansPlain spans) 22.0 ]
+            | Heading(size = 3; body = spans) -> [ textBlock (writeSpansPlain spans) 18.0 ]
+            | Heading(size = size; body = spans) -> [
+                textBlock (writeSpansPlain spans) (max 14.0 (20.0 - float (size - 3) * 2.0))
+              ]
+            | Paragraph(body, _) -> renderSpans body
+            | ListBlock(Unordered, items, _) ->
+                items
+                |> List.collect (fun item ->
+                    let txt = item |> List.collect renderParagraph
 
-        // let rec renderParagraph (par : MarkdownParagraph) : IView list =
-        //     match par with
-        //     | Heading(size = 1; body = spans) -> [
-        //         textBlock (Markdown.WriteSpansPlain spans) 26.0
-        //       ]
-        //     | Heading(size = 2; body = spans) -> [
-        //         textBlock (Markdown.WriteSpansPlain spans) 22.0
-        //       ]
-        //     | Heading(size = 3; body = spans) -> [
-        //         textBlock (Markdown.WriteSpansPlain spans) 18.0
-        //       ]
-        //     | Paragraph(spans = spans) -> renderSpans spans
-        //     | ListBlock(isOrdered = false; items = items) ->
-        //         items
-        //         |> List.collect (fun item ->
-        //             let txt = item |> List.collect renderParagraph
-        //
-        //             [
-        //                 StackPanel.create [
-        //                     StackPanel.orientation Orientation.Horizontal
-        //                     StackPanel.children (textBlock "• " 14.0 :: txt)
-        //                     StackPanel.margin 16.0 0.0 0.0 0.0
-        //                 ]
-        //             ])
-        //     | CodeBlock(code = code; lang = _) -> [
-        //         Border.create [
-        //             Border.background (SolidColorBrush(Color.Parse "#1e1e1e"))
-        //             Border.cornerRadius 4.0
-        //             Border.padding 8.0
-        //             Border.child (
-        //                 TextBlock.create [
-        //                     TextBlock.text code
-        //                     TextBlock.foreground Brushes.White
-        //                     TextBlock.fontFamily "Consolas, Menlo, monospace"
-        //                     TextBlock.textWrapping TextWrapping.Wrap
-        //                 ]
-        //             )
-        //         ]
-        //       ]
-        //     | _ -> [] // unhandled paragraph kinds
+                    [
+                        StackPanel.create [
+                            StackPanel.orientation Orientation.Horizontal
+                            StackPanel.children (textBlock "• " 14.0 :: txt)
+                            StackPanel.margin (16.0, 0.0, 0.0, 0.0)
+                        ]
+                    ])
+            | ListBlock(Ordered, items, _) ->
+                items
+                |> List.mapi (fun index item ->
+                    let txt = item |> List.collect renderParagraph
 
-        /// TODO: "doc.Paragraphs |> Seq.toList |> List.collect renderParagraph"
-        let render (markdown : string) : IView =
-            let _doc = Markdown.Parse markdown
-
-            StackPanel.create [ StackPanel.children [] ]
-
-    module Content =
-        let render : Renderer =
-            fun model _ ->
-                TextBlock.create [
-                    TextBlock.text $"Current View: {model.CurrentView.label}"
-                    TextBlock.verticalAlignment VerticalAlignment.Center
-                    TextBlock.horizontalAlignment HorizontalAlignment.Center
+                    StackPanel.create [
+                        StackPanel.orientation Orientation.Horizontal
+                        StackPanel.children (textBlock $"{index + 1}. " 14.0 :: txt)
+                        StackPanel.margin (16.0, 0.0, 0.0, 0.0)
+                    ])
+                |> List.map (fun x -> x :> IView)
+            | CodeBlock(code, _, _, _, _, _) -> [
+                Border.create [
+                    Border.background (SolidColorBrush(Color.Parse "#1e1e1e"))
+                    Border.cornerRadius 4.0
+                    Border.padding 8.0
+                    Border.margin (0.0, 8.0)
+                    Border.child (
+                        TextBlock.create [
+                            TextBlock.text code
+                            TextBlock.foreground Brushes.White
+                            TextBlock.fontFamily "Consolas, Menlo, Monaco, monospace"
+                            TextBlock.textWrapping TextWrapping.Wrap
+                        ]
+                    )
                 ]
+              ]
+            | QuotedBlock(paragraphs, _) -> [
+                Border.create [
+                    Border.borderBrush (SolidColorBrush(Color.Parse "#ccc"))
+                    Border.borderThickness (4.0, 0.0, 0.0, 0.0)
+                    Border.padding (16.0, 8.0, 8.0, 8.0)
+                    Border.margin (0.0, 8.0)
+                    Border.background (SolidColorBrush(Color.Parse "#f9f9f9"))
+                    Border.child (
+                        StackPanel.create [
+                            StackPanel.children (paragraphs |> List.collect renderParagraph)
+                        ]
+                    )
+                ]
+              ]
+            | HorizontalRule _ -> [
+                Border.create [
+                    Border.height 1.0
+                    Border.background (SolidColorBrush(Color.Parse "#ccc"))
+                    Border.margin (0.0, 16.0)
+                ]
+              ]
+            | TableBlock(_, _, _, _) -> [
+                TextBlock.create [
+                    TextBlock.text "[Table - not yet supported]"
+                    TextBlock.foreground Brushes.Gray
+                    TextBlock.fontStyle FontStyle.Italic
+                ]
+              ]
+            | _ -> [] // unhandled paragraph kinds
 
-    module Sidebar =
-        let sidebarItems _ (dispatch : Message -> unit) : List<IView> =
-            Section.List
-            |> List.map (fun view ->
-                Button.create [
-                    Button.content view.label
-                    Button.onClick (fun _ -> dispatch (SelectView view))
-                ])
-
-        let render : Renderer =
-            fun state dispatch ->
-                StackPanel.create [ StackPanel.children (sidebarItems state dispatch) ]
+        let render (markdown : string) : IView =
+            Markdown.Parse markdown
+            |> _.Paragraphs
+            |> Seq.toList
+            |> List.collect renderParagraph
+            |> StackPanel.children
+            |> fun children -> StackPanel.create [ children; StackPanel.margin 16.0 ]
+            |> fun panel -> ScrollViewer.create [ ScrollViewer.content panel ]
 
     module Sidebars =
-        // <Style Selector=".NavSidebar">
-        //     <Setter Property="Background" Value="#1e293b"/>
-        //     <Setter Property="Padding" Value="8"/>
-        //     <Setter Property="FontFamily" Value="Inter"/>
-        //     <Setter Property="FontSize" Value="14"/>
-        // </Style>
-        // <Style Selector=".NavSelected">
-        //     <Setter Property="Background" Value="#334155"/>
-        //     <Setter Property="Foreground" Value="#38bdf8"/>
-        //     <Setter Property="FontWeight" Value="Bold"/>
-        // </Style>
-        // <Style Selector=".FileSidebar">
-        //     <Setter Property="Background" Value="#e2e8f0"/>
-        //     <Setter Property="FontSize" Value="13"/>
-        // </Style>
-        // <Style Selector=".EditorPane">
-        //     <Setter Property="Background" Value="White"/>
-        //     <Setter Property="BorderThickness" Value="1"/>
-        //     <Setter Property="BorderBrush" Value="#cbd5e1"/>
-        //     <Setter Property="CornerRadius" Value="8"/>
-        // </Style>
         module Navigation =
-            let private t = Presets.solarizedDark
             let private isSelected view state = state.CurrentView = view
+            let private getTheme model = model.AppTheme
 
-            let private renderItem (model : Model) dispatch =
-                let r (item : Section) : IView =
-                    let selected = isSelected item model
+            let private renderItem (model : Model) dispatch (item : Section) : IView =
+                let selected = isSelected item model
 
-                    Button.create [
-                        Button.content item.label
-                        Button.onClick (fun _ -> dispatch (SelectView item))
-                        Button.margin (Thickness(0, 4, 0, 4))
-                        Button.horizontalAlignment HorizontalAlignment.Stretch
-                        Button.background (if selected then t.Base02 else t.Base01)
-                        Button.foreground (if selected then t.Base0D else t.Base05)
-                        Button.fontWeight (if selected then FontWeight.Bold else FontWeight.Medium)
-                    ]
+                let t = getTheme model
+                let bg = if selected then t.Base02 else Colors.Transparent
+                let fg = if selected then t.Base0D else t.Base05
+                let borderT = if selected then Thickness(2, 0, 0, 0) else Thickness(0)
+                let borderB = if selected then SolidColorBrush t.Base0D else null
+                let label = item.label
+                let handler _ = item |> SelectView |> dispatch
 
-                r
+                Button.create [
+                    Button.content label
+                    Button.onClick handler
+                    Button.margin (Thickness(8, 2, 8, 2))
+                    Button.padding (Thickness(12, 8, 12, 8))
+                    Button.horizontalAlignment HorizontalAlignment.Stretch
+                    Button.background bg
+                    Button.foreground fg
+                    Button.fontWeight (if selected then FontWeight.Bold else FontWeight.Normal)
+                    Button.fontSize 13.0
+                    Button.borderThickness borderT
+                    Button.borderBrush borderB
+                    Button.cornerRadius 4.0
+                ]
+
 
             let private items model dispatch : IView list =
                 Section.List |> List.map (renderItem model dispatch)
 
+            let private header model =
+                TextBlock.create [
+                    TextBlock.text "Navigation"
+                    TextBlock.fontWeight FontWeight.Bold
+                    TextBlock.fontSize 14.0
+                    TextBlock.foreground model.AppTheme.Base04
+                    TextBlock.margin (Thickness(12, 12, 12, 8))
+                ]
+
             let render model dispatch =
                 StackPanel.create [
-                    StackPanel.background model.AppTheme.Base00
-                    StackPanel.children (items model dispatch)
+                    StackPanel.background model.AppTheme.Base01
+                    StackPanel.children (header model :: items model dispatch)
+                    StackPanel.margin (Thickness(0, 0, 1, 0))
                 ]
 
         module FileBrowser =
-            let private header =
+            let private header model =
                 TextBlock.create [
-                    TextBlock.text "FileSystem"
+                    TextBlock.text "Files"
                     TextBlock.fontWeight FontWeight.Bold
-                    TextBlock.margin (Thickness(8, 0, 0, 8))
+                    TextBlock.fontSize 14.0
+                    TextBlock.foreground model.AppTheme.Base04
+                    TextBlock.margin (Thickness(12, 12, 12, 8))
                 ]
 
-            let listing (files : string list) (dispatch : Message -> unit) : IView list =
-                files
-                |> List.map (fun f ->
-                    Button.create [
-                        Button.content (Path.GetFileName f : string)
-                        Button.onClick (fun _ -> dispatch (OpenFile f))
-                        Button.horizontalAlignment HorizontalAlignment.Stretch
-                        Button.margin (Thickness(2))
-                    ])
+            let private fileButton
+                (fileName : string)
+                (filePath : string)
+                (model : Model)
+                (dispatch : Message -> unit)
+                : IView =
+                Button.create [
+                    Button.content fileName
+                    Button.onClick (fun _ -> dispatch (OpenFile filePath))
+                    Button.horizontalAlignment HorizontalAlignment.Stretch
+                    Button.margin (Thickness(8, 1, 8, 1))
+                    Button.padding (Thickness(12, 6, 12, 6))
+                    Button.background Colors.Transparent
+                    Button.foreground model.AppTheme.Base05
+                    Button.fontSize 12.0
+                    Button.cornerRadius 3.0
+                    Button.onPointerEntered (fun _ -> ())
+                    ToolTip.tip filePath
+                ]
+
+            let listing
+                (files : string list)
+                (model : Model)
+                (dispatch : Message -> unit)
+                : IView list =
+                files |> List.map (fun f -> fileButton (Path.GetFileName f) f model dispatch)
+
+            let private emptyState model =
+                StackPanel.create [
+                    StackPanel.children [
+                        TextBlock.create [
+                            TextBlock.text "No files"
+                            TextBlock.foreground model.AppTheme.Base03
+                            TextBlock.fontSize 12.0
+                            TextBlock.fontStyle FontStyle.Italic
+                            TextBlock.horizontalAlignment HorizontalAlignment.Center
+                            TextBlock.margin (Thickness(0, 16, 0, 0))
+                        ]
+                    ]
+                ]
 
             let render (model : Model) dispatch =
                 StackPanel.create [
                     StackPanel.background model.AppTheme.Base01
                     StackPanel.children (
                         match model.Files with
-                        | [] -> header :: [ TextBlock.create [ TextBlock.text "No Files" ] ]
-                        | files -> header :: listing files dispatch
+                        | [] -> [ header model; emptyState model ]
+                        | files -> header model :: listing files model dispatch
                     )
+                    StackPanel.margin (Thickness(1, 0, 0, 0))
                 ]
 
     module Menu =
-        let private renderButton (dispatch : Message -> unit) : string * Message -> IView =
+
+        let private renderButton
+            (model : Model)
+            (dispatch : Message -> unit)
+            : string * Message -> IView =
             fun (label : string, msg : Message) ->
-                (Button.create [
+                Button.create [
                     Button.content label
                     Button.onClick (fun _ -> dispatch msg)
-                    Button.margin (Thickness(4, 2, 4, 2))
+                    Button.margin (Thickness(4, 4, 4, 4))
+                    Button.padding (Thickness(12, 6, 12, 6))
+                    Button.background Colors.Transparent
+                    Button.foreground model.AppTheme.Base05
+                    Button.fontSize 13.0
+                    Button.cornerRadius 3.0
+                    Button.borderThickness (Thickness(0))
+                ]
 
-                ])
-
-        let private actions dispatch : IView list =
+        let private actions model dispatch : IView list =
             [|
                 "File", ToggleMenuButton FileButton
                 "Edit", ToggleMenuButton EditButton
                 "Help", ToggleMenuButton HelpButton
             |]
-            |> Array.map (renderButton dispatch)
+            |> Array.map (renderButton model dispatch)
             |> Array.toList
 
-        let render (_model : Model) dispatch =
-            DockPanel.create [
-                DockPanel.dock Dock.Top
-                DockPanel.lastChildFill false
-                DockPanel.children (actions dispatch)
+        let private modeDropdown model dispatch =
+            Border.create [
+                Border.background model.AppTheme.Base01
+                Border.cornerRadius 4.0
+                Border.padding (Thickness(1))
+                Border.margin (Thickness(8, 4, 8, 4))
+                Border.child (
+                    ComboBox.create [
+                        ComboBox.dataItems (EditorMode.List |> List.map box)
+                        ComboBox.itemTemplate (
+                            DataTemplateView.create<_, _> (fun (mode : EditorMode) ->
+                                TextBlock.create [
+                                    TextBlock.text (mode.ToString())
+                                    TextBlock.foreground model.AppTheme.Base05
+                                    TextBlock.padding (Thickness(8, 4))
+                                ]
+                                :> IView)
+                        )
+                        ComboBox.selectedItem (box model.Editor.Mode)
+                        ComboBox.onSelectedItemChanged (fun args ->
+                            match args with
+                            | :? EditorMode as mode -> dispatch (ChangeEditorMode mode)
+                            | _ -> ())
+                        ComboBox.maxDropDownHeight 120.0
+                        ComboBox.background model.AppTheme.Base00
+                        ComboBox.foreground model.AppTheme.Base05
+                        ComboBox.fontSize 13.0
+                        ComboBox.minWidth 100.0
+                    ]
+                )
             ]
 
-open Widgets
+        let private settingsButton model =
+            Button.create [
+                Button.content "Settings"
+                Button.onClick (fun _ -> ())
+                Button.margin (Thickness(4, 4, 8, 4))
+                Button.padding (Thickness(12, 6, 12, 6))
+                Button.background Colors.Transparent
+                Button.foreground model.AppTheme.Base05
+                Button.fontSize 13.0
+                Button.cornerRadius 3.0
+                Button.borderThickness (Thickness(0))
+            ]
+
+        let render (model : Model) dispatch =
+            Border.create [
+                Border.dock Dock.Top
+                Border.background model.AppTheme.Base01
+                Border.borderThickness (Thickness(0, 0, 0, 1))
+                Border.borderBrush (SolidColorBrush(model.AppTheme.Base02))
+                Border.child (
+                    DockPanel.create [
+                        DockPanel.lastChildFill false
+                        DockPanel.margin (Thickness(8, 0, 8, 0))
+                        DockPanel.children (
+                            actions model dispatch
+                            @ [ modeDropdown model dispatch; settingsButton model ]
+                        )
+                    ]
+                )
+            ]
 
 module Windows =
-    module Main =
+    open Widgets
 
+    module Main =
         let render : Renderer =
             fun model dispatch ->
                 DockPanel.create [
                     DockPanel.children [
-                        Widgets.Menu.render model dispatch
+                        Menu.render model dispatch
                         Border.create [
                             Border.dock Dock.Left
-                            Border.width 128
-                            Border.background Brushes.DarkSlateBlue
+                            Border.minWidth 180
+                            Border.maxWidth 220
+                            Border.width 200
+                            Border.background (SolidColorBrush(model.AppTheme.Base01))
                             Border.child (Sidebars.Navigation.render model dispatch)
                         ]
                         Border.create [
                             Border.dock Dock.Left
-                            Border.width 128
-                            Border.background Brushes.LightSteelBlue
+                            Border.minWidth 180
+                            Border.maxWidth 220
+                            Border.width 200
+                            Border.background (SolidColorBrush(model.AppTheme.Base01))
                             Border.child (Sidebars.FileBrowser.render model dispatch)
                         ]
-
-                        EditorControl.render model dispatch
+                        match model.Editor.Mode with
+                        | Preview -> EditorControl.render model dispatch
+                        | Markdown -> Preview.render model.Editor.Content
                     ]
                 ]

@@ -357,6 +357,11 @@ type Scheme =
     | Light
     | Dark
 
+    member this.defaultTextColor : Color =
+        match this with
+        | Light -> Colors.Black
+        | Dark -> Colors.White
+
 module Scheme =
     let toggle (s : Scheme) : Scheme =
         match s with
@@ -541,6 +546,7 @@ type EditorState = {
     LineHeight : float
     FontSize : float
     Mode : EditorMode
+    FontFamily : string
 } with
 
     static member Default : EditorState = {
@@ -564,12 +570,15 @@ type EditorState = {
         FontSize = 14.0
         ShouldWrap = true
         Mode = Markdown
+        FontFamily = "JetBrains Mono, Consolas, Courier New, monospace"
     }
 
+/// TODO: WYSIWYG mode
 and EditorMode =
-    | WYSIWYG
-    | PlainText
+    | Preview
     | Markdown
+
+    static member List = [ Preview; Markdown ]
 
 and CaretPosition = {
     Line : int
@@ -648,8 +657,11 @@ type Model = {
     Editor : EditorState
     Files : string list
     AppTheme : Theme
+} with
 
-}
+    member this.Scheme : Scheme = this.Config.Scheme
+
+    member this.defaultFg : Color = this.Scheme.defaultTextColor
 
 module Watcher =
     open Store.FileSystem
