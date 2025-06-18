@@ -1,0 +1,49 @@
+{
+	"build": {
+		"projectFile": "NoteTaker.GUI/NoteTaker.GUI.fsproj",
+		"outputDir": "dist",
+		"configuration": "Release",
+		"platforms": [
+			{
+				"name": "macOS x64",
+				"runtime": "osx-x64",
+				"createAppBundle": true,
+				"appBundleName": "Stormlight Note Taker.app"
+			},
+			{
+				"name": "macOS ARM64",
+				"runtime": "osx-arm64",
+				"createAppBundle": true,
+				"appBundleName": "Stormlight Note Taker.app"
+			},
+			{
+				"name": "Windows x64",
+				"runtime": "win-x64",
+				"createAppBundle": false
+			},
+			{
+				"name": "Linux x64",
+				"runtime": "linux-x64",
+				"createAppBundle": false
+			}
+		],
+		"publishOptions": {
+			"selfContained": true,
+			"singleFile": true,
+			"includeNativeLibraries": true,
+			"trimMode": "partial"
+		},
+		"appBundle": {
+			"iconFile": "NoteTaker.GUI/Icons/App/osx.icns",
+			"infoPlist": "NoteTaker.GUI/Info.plist",
+			"executable": "NoteTaker.GUI"
+		}
+	},
+	"scripts": {
+		"clean": "rm -rf dist && dotnet clean",
+		"restore": "dotnet restore NoteTaker.GUI/NoteTaker.GUI.fsproj",
+		"build-dev": "dotnet build NoteTaker.GUI/NoteTaker.GUI.fsproj -c Debug",
+		"run": "dotnet run --project NoteTaker.GUI/NoteTaker.GUI.fsproj",
+		"test": "dotnet test NoteTaker.Tests/NoteTaker.Tests.fsproj"
+	}
+}
