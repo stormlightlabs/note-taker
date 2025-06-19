@@ -97,9 +97,10 @@ module Tests =
         runTestsWithCLIArgs
             [||]
             argv
-            (testList "Initialization Tests" [
+            (testList "All Tests" [
                 workspaceSetupTests
                 fileSystemStoreTests
                 memoryStoreTests
                 ModelTests.readmeCreationTests
+                EditorTests.editorTests
             ])

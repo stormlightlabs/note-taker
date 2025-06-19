@@ -6,7 +6,7 @@ open NoteTaker.Model
 module ModelTests =
 
     let private testFilesLoadedWithoutMarkdown =
-        testCase "FilesLoaded without markdown files should update files"
+        testCase "FilesLoaded without markdown files should filter out non-markdown files"
         <| fun _ ->
             let initialState : Model = {
                 Config = Config.Default
@@ -25,10 +25,13 @@ module ModelTests =
 
             let newState, _cmd = Handlers.update message initialState
 
-            Expect.equal newState.Files nonMarkdownFiles "Files should be updated"
+            Expect.equal
+                newState.Files
+                []
+                "Only markdown files should be kept, so result should be empty"
 
     let private testFilesLoadedWithMarkdown =
-        testCase "FilesLoaded with markdown files should update files"
+        testCase "FilesLoaded with markdown files should keep only markdown files"
         <| fun _ ->
             let initialState = {
                 Config = Config.Default
@@ -42,12 +45,12 @@ module ModelTests =
                 CurrentFolder = None
             }
 
-            let filesWithMarkdown = [ "config.json"; "existing.md"; "data.txt" ]
+            let filesWithMarkdown = [ "existing.md" ]
             let message = FilesLoaded filesWithMarkdown
 
             let newState, _cmd = Handlers.update message initialState
 
-            Expect.equal newState.Files filesWithMarkdown "Files should be updated"
+            Expect.equal newState.Files [ "existing.md" ] "Only markdown files should be kept"
 
     [<Tests>]
     let readmeCreationTests =

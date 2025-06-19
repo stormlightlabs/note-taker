@@ -50,7 +50,6 @@ module Update =
         with _ -> [] // Return empty list on error to avoid breaking the UI
 
     let loadFiles (store : Store) (state : Model) =
-        // Trigger file loading command
         state, loadFilesSync Store.FileSystem.getConfigDir |> FilesLoaded |> Cmd.ofMsg
 
     let private checkMDFiles (f : string) =
@@ -89,7 +88,6 @@ module Update =
             (fun _ -> ClearError)
 
     let toggleMenuButton (button : MenuButton) (state : Model) =
-
         {
             state with
                 ActiveMenu =
@@ -206,7 +204,11 @@ module Update =
         try
             let content = File.ReadAllText(filePath)
 
-            let lines = content.Split([| '\r'; '\n' |], StringSplitOptions.None) |> Array.toList
+            let lines =
+                if String.IsNullOrEmpty(content) then
+                    [ "" ] // Ensure at least one empty line for empty files
+                else
+                    content.Split([| '\r'; '\n' |], StringSplitOptions.None) |> Array.toList
 
             {
                 state with
@@ -225,19 +227,22 @@ module Update =
         with ex ->
             state, Cmd.ofMsg (SetError(LoadFileError ex.Message))
 
-    let fileOpened (filePath : string) (content : string) (state : Model) =
-        let lines = content.Split([| '\r'; '\n' |], StringSplitOptions.None) |> Array.toList
+    let lines (contents : string) =
+        match contents |> Seq.toList with
+        | [] -> [ "" ]
+        | _ -> contents.Split([| '\r'; '\n' |], StringSplitOptions.None) |> Array.toList
 
+    let fileOpened (filePath : string) (content : string) (state : Model) =
         {
             state with
                 Editor = {
                     state.Editor with
                         CurrentFile = Some filePath
                         Content = content
-                        Lines = lines
-                        Cache = Map.empty // Clear cache when loading new content
-                        Caret = { Line = 0; Column = 0 } // Reset caret position
-                        Selection = None // Clear selection
+                        Lines = lines content
+                        Cache = Map.empty
+                        Caret = { Line = 0; Column = 0 }
+                        Selection = None
                 }
                 IsDirty = false
         },
@@ -251,14 +256,12 @@ module Update =
                 { state with IsDirty = false }, Cmd.none
             with ex ->
                 state, Cmd.ofMsg (SetError(Unexpected(Some ex.Message)))
-        | None ->
-            // No file is currently open, cannot save
-            state, Cmd.none
+        | None -> state, Cmd.none
 
     let saveFileAs newFilePath (state : Model) =
         try
             File.WriteAllText(newFilePath, state.Editor.Content)
-            // Update the model to reflect the new file
+
             {
                 state with
                     Editor = { state.Editor with CurrentFile = Some newFilePath }
@@ -293,21 +296,190 @@ module Update =
         }
         |> withCommand None
 
-    let handleTextInput (args : TextInputEventArgs) state =
-        let newContent = state.Editor.Content + args.Text
+    let private insertCharAtCaret (text : string) (lines : string list) (caret : CaretPosition) =
+        if caret.Line >= 0 && caret.Line < lines.Length then
+            let currentLine = lines.[caret.Line]
+            let col = max 0 (min caret.Column currentLine.Length)
+            let newLine = currentLine.Insert(col, text)
 
-        let newLines =
-            newContent.Split([| '\r'; '\n' |], StringSplitOptions.None) |> Array.toList
+            lines |> List.mapi (fun i line -> if i = caret.Line then newLine else line),
+            { caret with Column = col + text.Length }
+        elif lines.IsEmpty then
+            [ text ], { Line = 0; Column = text.Length }
+        else
+            lines, caret
+
+    let private deleteCharAtCaret (lines : string list) (caret : CaretPosition) =
+        if caret.Line >= 0 && caret.Line < lines.Length then
+            let currentLine = lines.[caret.Line]
+
+            if caret.Column > 0 && caret.Column <= currentLine.Length then
+                let newLine = currentLine.Remove(caret.Column - 1, 1)
+
+                let newLines =
+                    lines |> List.mapi (fun i line -> if i = caret.Line then newLine else line)
+
+                let newCaret = { caret with Column = caret.Column - 1 }
+                newLines, newCaret
+            elif caret.Column = 0 && caret.Line > 0 then
+                let prevLine = lines.[caret.Line - 1]
+                let currentLine = lines.[caret.Line]
+                let newLine = prevLine + currentLine
+
+                let newLines =
+                    lines
+                    |> List.mapi (fun i line ->
+                        if i = caret.Line - 1 then Some newLine
+                        elif i = caret.Line then None
+                        else Some line)
+                    |> List.choose id
+
+                let newCaret = { Line = caret.Line - 1; Column = prevLine.Length }
+                newLines, newCaret
+            else
+                lines, caret
+        else
+            lines, caret
+
+    let private insertNewlineAtCaret (lines : string list) (caret : CaretPosition) =
+        if caret.Line >= 0 && caret.Line < lines.Length then
+            let currentLine = lines.[caret.Line]
+            let col = max 0 (min caret.Column currentLine.Length)
+            let beforeCaret = currentLine.Substring(0, col)
+            let afterCaret = currentLine.Substring(col)
+
+            let newLines =
+                lines
+                |> List.mapi (fun i line -> if i = caret.Line then beforeCaret else line)
+                |> fun beforeLines ->
+                    let beforePart = beforeLines |> List.take (caret.Line + 1)
+                    let afterPart = beforeLines |> List.skip (caret.Line + 1)
+                    beforePart @ [ afterCaret ] @ afterPart
+
+            let newCaret = { Line = caret.Line + 1; Column = 0 }
+            newLines, newCaret
+        elif lines.IsEmpty then
+            [ ""; "" ], { Line = 1; Column = 0 }
+        else
+            lines, caret
+
+    let handleKeyDown (args : KeyEventArgs) state =
+        let caret = state.Editor.Caret
+        let lines = state.Editor.Lines
+
+        let newLines, newCaret =
+            match args.Key with
+            | Key.Left when caret.Column > 0 -> (lines, { caret with Column = caret.Column - 1 })
+            | Key.Left when caret.Line > 0 ->
+                let prevLineLength =
+                    if caret.Line - 1 < lines.Length then
+                        lines.[caret.Line - 1].Length
+                    else
+                        0
+
+                lines, { Line = caret.Line - 1; Column = prevLineLength }
+            | Key.Right when caret.Line < lines.Length && caret.Column < lines.[caret.Line].Length ->
+                lines, { caret with Column = caret.Column + 1 }
+            | Key.Right when caret.Line < lines.Length - 1 ->
+                lines, { Line = caret.Line + 1; Column = 0 }
+            | Key.Up when caret.Line > 0 ->
+                let targetLine = caret.Line - 1
+
+                let maxCol =
+                    if targetLine < lines.Length then
+                        lines.[targetLine].Length
+                    else
+                        0
+
+                lines, { Line = targetLine; Column = min caret.Column maxCol }
+            | Key.Down when caret.Line < lines.Length - 1 ->
+                let targetLine = caret.Line + 1
+
+                let maxCol =
+                    if targetLine < lines.Length then
+                        lines.[targetLine].Length
+                    else
+                        0
+
+                (lines, { Line = targetLine; Column = min caret.Column maxCol })
+            | Key.Home -> (lines, { caret with Column = 0 })
+            | Key.End when caret.Line < lines.Length ->
+                (lines, { caret with Column = lines.[caret.Line].Length })
+            | Key.Back -> deleteCharAtCaret lines caret
+            | Key.Delete when caret.Line < lines.Length && caret.Column < lines.[caret.Line].Length ->
+                let currentLine = lines.[caret.Line]
+                let newLine = currentLine.Remove(caret.Column, 1)
+
+                let newLines =
+                    lines |> List.mapi (fun i line -> if i = caret.Line then newLine else line)
+
+                (newLines, caret)
+            | Key.Enter -> insertNewlineAtCaret lines caret
+            | _ -> (lines, caret)
+
+        let newContent = String.concat "\n" newLines
 
         {
             state with
                 Editor = {
                     state.Editor with
-                        Content = newContent
                         Lines = newLines
+                        Content = newContent
+                        Caret = newCaret
                         Cache = Map.empty // Clear cache when content changes
                 }
-                IsDirty = true
+                IsDirty = if newLines <> lines then true else state.IsDirty
+        }
+        |> withCommand None
+
+    let handleTextInput (args : TextInputEventArgs) state =
+        let text = args.Text
+
+        if not (String.IsNullOrEmpty(text)) && text <> "\r" && text <> "\n" then
+            let caret = state.Editor.Caret
+            let lines = state.Editor.Lines
+
+            let (newLines, newCaret) = insertCharAtCaret text lines caret
+            let newContent = String.concat "\n" newLines
+
+            {
+                state with
+                    Editor = {
+                        state.Editor with
+                            Content = newContent
+                            Lines = newLines
+                            Caret = newCaret
+                            Cache = Map.empty // Clear cache when content changes
+                    }
+                    IsDirty = true
+            }
+            |> withCommand None
+        else
+            state |> withCommand None
+
+    let handlePointerPressed (args : PointerPressedEventArgs) state =
+        // Calculate approximate caret position from click
+        let position = args.GetPosition(null)
+        let lineIndex = int (position.Y / state.Editor.LineHeight)
+        let columnIndex = max 0 (int ((position.X - 4.0) / 8.0)) // Approximate character width
+
+        let clampedLine = max 0 (min lineIndex (state.Editor.Lines.Length - 1))
+
+        let clampedColumn =
+            if clampedLine < state.Editor.Lines.Length then
+                max 0 (min columnIndex state.Editor.Lines.[clampedLine].Length)
+            else
+                0
+
+        let newCaret = { Line = clampedLine; Column = clampedColumn }
+
+        {
+            state with
+                Editor = {
+                    state.Editor with
+                        Caret = newCaret
+                        Selection = None // Clear selection on click
+                }
         }
         |> withCommand None
 
@@ -437,9 +609,9 @@ module Handlers =
         | SaveFileAs newFilePath -> state |> Update.saveFileAs newFilePath
         | LoadGrammar -> state |> Update.loadGrammar
         | RegisterColorMap colors -> state |> Update.registerColorMap colors
-        | OnKeyDown args -> Update.withCommand None state
+        | OnKeyDown args -> state |> Update.handleKeyDown args
         | OnTextInput args -> state |> Update.handleTextInput args
-        | OnPointerPressed args -> Update.withCommand None state
+        | OnPointerPressed args -> state |> Update.handlePointerPressed args
         | ScrollBy offset -> state |> Update.scrollBy offset
         | SetVisibleRange(start, count) -> state |> Update.setVisibleRange (start, count)
         | ResizeViewport size -> state |> Update.resizeViewport size

@@ -4,6 +4,7 @@ open NoteTaker.Model
 open TextMateSharp.Grammars
 open Avalonia
 open Avalonia.Controls
+open Avalonia.Controls.Shapes
 open Avalonia.Media
 open Avalonia.FuncUI.DSL
 open Avalonia.FuncUI.Types
@@ -18,10 +19,6 @@ module Syntax =
         let safeEnd = min input.Length token.EndIndex
 
         max 0 (safeEnd - safeStart)
-
-    let private getScope (input : string) (token : IToken) : (string * string) =
-        input |> _.Substring(token.StartIndex, endIndex token input),
-        token.Scopes |> List.ofSeq |> List.rev |> List.head
 
     let tokenizeLine (textMateScope : Option<string>) (registry : Registry) (inputLn : string) =
         match textMateScope with
@@ -98,6 +95,61 @@ module EditorControl =
     /// Calculate the Y position for this line (absolute position, not relative to scroll)
     let private yPos index lnHeight = float index * lnHeight
 
+    let private renderCaret model : IView =
+        let caretX = 4.0 + (float model.Editor.Caret.Column * 8.0) // Approximate character width
+        let caretY = yPos model.Editor.Caret.Line model.Editor.LineHeight
+
+        Rectangle.create [
+            Rectangle.width 2.0
+            Rectangle.height model.Editor.LineHeight
+            Rectangle.fill model.AppTheme.Base05
+            Canvas.left caretX
+            Canvas.top caretY
+        ]
+        :> IView
+
+    let private renderSelection model : IView list =
+        match model.Editor.Selection with
+        | None -> []
+        | Some selection ->
+            let startLine = min selection.Start.Line selection.End.Line
+            let endLine = max selection.Start.Line selection.End.Line
+
+            let startCol =
+                if selection.Start.Line <= selection.End.Line then
+                    selection.Start.Column
+                else
+                    selection.End.Column
+
+            let endCol =
+                if selection.Start.Line <= selection.End.Line then
+                    selection.End.Column
+                else
+                    selection.Start.Column
+
+            [ startLine..endLine ]
+            |> List.map (fun lineIndex ->
+                let y = yPos lineIndex model.Editor.LineHeight
+                let x = 4.0
+
+                let width =
+                    if lineIndex < model.Editor.Lines.Length then
+                        float model.Editor.Lines.[lineIndex].Length * 8.0 // Approximate
+                    else
+                        100.0
+
+                Rectangle.create [
+                    Rectangle.fill (
+                        model.AppTheme.Base02.ToUInt32() |> Color.FromUInt32 |> SolidColorBrush
+                    )
+                    Rectangle.height model.Editor.LineHeight
+                    Rectangle.width width
+                    Canvas.left x
+                    Canvas.top y
+                    Rectangle.opacity 0.3
+                ]
+                :> IView)
+
     let private renderContents model dispatch : IView =
         let renderLn lnIndex =
             let lineText =
@@ -145,18 +197,24 @@ module EditorControl =
                 Canvas.left 4.0
                 TextBlock.foreground Brushes.Black
                 TextBlock.background Brushes.Transparent
-                TextBlock.isHitTestVisible true
+                TextBlock.isHitTestVisible false // Let canvas handle input
                 TextBlock.textWrapping (wrapping model)
             ]
 
         let contentBlocks =
             match model.Editor.Lines with
-            | [] -> [] // Minimum height for empty files
+            | [] -> [ renderCaret model ] // Show caret even in empty files
             | lines ->
-                lines
-                |> _.Length
-                |> fun count ->
-                    [ 0 .. count - 1 ] |> List.map renderLn |> List.map (fun x -> x :> IView)
+                let textBlocks =
+                    lines
+                    |> _.Length
+                    |> fun count ->
+                        [ 0 .. count - 1 ] |> List.map renderLn |> List.map (fun x -> x :> IView)
+
+                let selectionBlocks = renderSelection model
+                let caretBlock = [ renderCaret model ]
+
+                selectionBlocks @ textBlocks @ caretBlock
 
         Canvas.create [
             Canvas.clipToBounds true
@@ -164,6 +222,7 @@ module EditorControl =
             Canvas.children contentBlocks
             Canvas.background model.AppTheme.Base00
             Canvas.isHitTestVisible true
+            Canvas.focusable true
             Canvas.onPointerPressed (fun args -> dispatch (OnPointerPressed args))
             Canvas.onKeyDown (fun args -> dispatch (OnKeyDown args))
             Canvas.onTextInput (fun args -> dispatch (OnTextInput args))
@@ -197,29 +256,34 @@ module EditorControl =
         ]
 
     let private renderEditorBody model dispatch =
+        let editorCanvas =
+            DockPanel.create [
+                DockPanel.lastChildFill true
+                DockPanel.children [
+                    Border.create [
+                        Border.dock Dock.Left
+                        Border.maxWidth 50.0
+                        Border.width 25.0
+                        Border.background model.AppTheme.Base01
+                        Border.child (renderLineNumbers model dispatch)
+                    ]
+                    Border.create [
+                        Border.borderThickness 0
+                        Border.padding (Thickness(0, 0, 8, 0))
+                        Border.background Colors.Transparent
+                        Border.child (renderContents model dispatch)
+                    ]
+                ]
+            ]
+
         ScrollViewer.create [
             ScrollViewer.verticalScrollBarVisibility ScrollBarVisibility.Auto
             ScrollViewer.horizontalScrollBarVisibility ScrollBarVisibility.Auto
-            ScrollViewer.content (
-                DockPanel.create [
-                    DockPanel.lastChildFill true
-                    DockPanel.children [
-                        Border.create [
-                            Border.dock Dock.Left
-                            Border.maxWidth 50.0
-                            Border.width 25.0
-                            Border.background model.AppTheme.Base01
-                            Border.child (renderLineNumbers model dispatch)
-                        ]
-                        Border.create [
-                            Border.borderThickness 0
-                            Border.padding (Thickness(0, 0, 8, 0))
-                            Border.background Colors.Transparent
-                            Border.child (renderContents model dispatch)
-                        ]
-                    ]
-                ]
-            )
+            ScrollViewer.content editorCanvas
+            ScrollViewer.focusable true
+            ScrollViewer.onGotFocus (fun _ ->
+                // Focus the canvas when scroll viewer gets focus
+                dispatch (UpdateCaret model.Editor.Caret))
         ]
 
     let render model (dispatch : Message -> unit) =
